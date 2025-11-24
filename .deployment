@@ -1,0 +1,6 @@
+[config]
+SCM_DO_BUILD_DURING_DEPLOYMENT = false
+DEPLOYMENT_SCRIPT = dotnet-publish.cmd
+
+[pre-build]
+echo Running pre-build steps...

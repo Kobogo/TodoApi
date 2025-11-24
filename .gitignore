@@ -1,0 +1,72 @@
+# Build- og VS-specifikke filer
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# MAUI device simulators (kan gemme device-metadata)
+DeviceTests/bin/
+DeviceTests/obj/
+*.apk
+*.aab
+
+# Output
+bin/
+obj/
+[Bb]uild/
+[Bb]uild[Ll]og.*
+[Ll]og/
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# NuGet og Package manager
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+
+# VS Code settings
+.vscode/
+
+# User-sepcific files
+*.db
+*.bak
+*.log
+*.tmp
+
+# macOS / Linux
+.DS_Store
+Thumbs.db
+
+# Windows crash reports
+*.stackdump
+
+# Xamarin / MAUI specific
+*.apk
+*.aab
+*.xcuserstate
+*.xcworkspace
+*.xcodeproj
+*.app
+*.dSYM/
+*.entitlements
+
+# MAUI Hot Reload artifacts
+**/.vsdbg/
+**/HotReloadAgent/
+
+# Optional: Ignore Test Results
+TestResults/
+
+# Optional: Ignore dotCover output
+.idea/.dotCover
+
+# Optional: Ignore secrets if present
+secrets.json
+appsettings*.json
