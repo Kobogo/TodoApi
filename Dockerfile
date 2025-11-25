@@ -1,29 +1,22 @@
-# Build stage
+# Use the official .NET 8 SDK as build image
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
 WORKDIR /src
 
-# Copy csproj
+# Copy csproj and restore
 COPY TodoApi.csproj ./
-
-# Restore dependencies
 RUN dotnet restore
 
-# Copy the rest of the source code
+# Copy everything else
 COPY . .
 
-# Build app
-RUN dotnet publish -c Release -o /app/publish
+# Publish the app
+RUN dotnet publish TodoApi.csproj -c Release -o /app/publish
 
-
-# Runtime stage
+# Runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
-
-# Copy published files
 COPY --from=build /app/publish .
-
-# Expose port 8080 (Render default)
 EXPOSE 8080
-
-# Start app
+ENV ASPNETCORE_URLS=http://+:8080
 ENTRYPOINT ["dotnet", "TodoApi.dll"]
