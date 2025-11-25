@@ -1,31 +1,29 @@
-# -------------------------------
-# 1) Build stage
-# -------------------------------
+# Build stage
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Kopiér solution og projektfil
-COPY *.sln .
-COPY TodoApi/*.csproj ./TodoApi/
+# Copy csproj
+COPY TodoApi.csproj ./
 
-# Restore dependencies for solution
-RUN dotnet restore TodoApi.sln
+# Restore dependencies
+RUN dotnet restore
 
-# Kopiér resten af koden
-COPY . ./
-WORKDIR /src/TodoApi
+# Copy the rest of the source code
+COPY . .
 
-# Build og publish
-RUN dotnet publish -c Release -o /app/publish --no-restore
+# Build app
+RUN dotnet publish -c Release -o /app/publish
 
-# -------------------------------
-# 2) Runtime stage
-# -------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
-# Kopiér det publicerede output fra build stage
+# Copy published files
 COPY --from=build /app/publish .
 
-# Start appen
+# Expose port 8080 (Render default)
+EXPOSE 8080
+
+# Start app
 ENTRYPOINT ["dotnet", "TodoApi.dll"]
