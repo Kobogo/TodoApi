@@ -20,14 +20,28 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // -------------------------------------------------------
-// 3) Services
+// 3) CORS
+// -------------------------------------------------------
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowAnyOrigin();
+    });
+});
+
+// -------------------------------------------------------
+// 4) Services
 // -------------------------------------------------------
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // -------------------------------------------------------
-// 4) Pipeline
+// 5) Pipeline
 // -------------------------------------------------------
 var app = builder.Build();
 
@@ -39,7 +53,11 @@ app.UseSwaggerUI(c =>
 });
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowAll");
+
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
