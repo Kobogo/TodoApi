@@ -69,6 +69,18 @@ namespace ToDoAPI.Controllers
             return NoContent();
         }
 
+        [HttpPatch("{id}/completion")]
+        public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
+        {
+            var task = await _context.DynamicTasks.FindAsync(id);
+            if (task == null) return NotFound();
+
+            task.IsCompleted = isCompleted;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
         // DELETE: api/Tasks/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDynamicTask(int id)

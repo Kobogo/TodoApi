@@ -52,6 +52,18 @@ public class StaticTasksController : ControllerBase
         return NoContent();
     }
 
+    [HttpPatch("{id}/completion")]
+    public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
+    {
+        var task = await _context.StaticTasks.FindAsync(id);
+        if (task == null) return NotFound();
+
+        task.IsCompleted = isCompleted;
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     private bool StaticTaskExists(int id)
     {
         return _context.StaticTasks.Any(e => e.Id == id);
