@@ -9,6 +9,7 @@ namespace ToDoAPI.Models
         [Key]
         public int Id { get; set; }
 
+        public int UserId { get; set; }
         public string Title { get; set; }
         public bool IsCompleted { get; set; }
         public TimeSpan? TimeOfDay { get; set; }

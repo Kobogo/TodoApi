@@ -2,9 +2,12 @@
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Data;
 using ToDoAPI.Models;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ToDoAPI.Controllers
 {
+    [Authorize] // Kræver login
     [Route("api/[controller]")]
     [ApiController]
     public class TasksController : ControllerBase
@@ -16,11 +19,20 @@ namespace ToDoAPI.Controllers
             _context = context;
         }
 
-        // GET: api/Tasks
+        // GET: api/Tasks?userId=5
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DynamicTask>>> GetDynamicTasks()
+        public async Task<ActionResult<IEnumerable<DynamicTask>>> GetDynamicTasks([FromQuery] int? userId)
         {
-            return await _context.DynamicTasks.ToListAsync();
+            // Hvis userId er sendt med (fra forældre-visning), filtrer på det.
+            // Ellers henter vi alle (senere kan vi begrænse så børn kun ser egne).
+            var query = _context.DynamicTasks.AsQueryable();
+
+            if (userId.HasValue)
+            {
+                query = query.Where(t => t.UserId == userId.Value);
+            }
+
+            return await query.ToListAsync();
         }
 
         // GET: api/Tasks/5
@@ -60,7 +72,7 @@ namespace ToDoAPI.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!_context.DynamicTasks.Any(e => e.Id == id))
+                if (!DynamicTaskExists(id))
                     return NotFound();
                 else
                     throw;
@@ -69,6 +81,7 @@ namespace ToDoAPI.Controllers
             return NoContent();
         }
 
+        // PATCH: api/Tasks/5/completion
         [HttpPatch("{id}/completion")]
         public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
         {
@@ -76,6 +89,8 @@ namespace ToDoAPI.Controllers
             if (task == null) return NotFound();
 
             task.IsCompleted = isCompleted;
+            if (isCompleted) task.LastCompletedDate = DateTime.UtcNow;
+
             await _context.SaveChangesAsync();
 
             return NoContent();
@@ -93,6 +108,11 @@ namespace ToDoAPI.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+
+        private bool DynamicTaskExists(int id)
+        {
+            return _context.DynamicTasks.Any(e => e.Id == id);
         }
     }
 }
