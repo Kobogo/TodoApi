@@ -63,4 +63,24 @@ app.UseAuthentication(); // Vigtigt: Skal stå før Authorization
 app.UseAuthorization();
 
 app.MapControllers();
+// --- SIKRER AT DATABASEN OG TABELLER ER OPRETTET ---
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    // Denne linje kigger på din AppDbContext og opretter alt der mangler i Neon
+    context.Database.EnsureCreated();
+
+    // Valgfrit: Opret "Far" hvis han ikke findes, så du kan logge ind med det samme
+    if (!context.Users.Any())
+    {
+        context.Users.Add(new TodoApi.Models.User
+        {
+            Username = "Far",
+            PasswordHash = "1234",
+            Role = "Parent",
+            FamilyId = 1
+        });
+        context.SaveChanges();
+    }
+}
 app.Run();
