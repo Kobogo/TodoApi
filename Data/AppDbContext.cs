@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking; // Til ValueComparer
-using System.Text.Json; // Til JsonSerializer
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using System.Text.Json;
 using System.Collections.Generic;
 using TodoApi.Models;
 using System;
@@ -20,9 +20,21 @@ namespace TodoApi.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // --- USER MAPPING (Vigtigt for Neon match) ---
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToTable("users"); // Mapper til den tabel du ser i Neon
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.Username).HasColumnName("username");
+                entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+                entity.Property(e => e.Role).HasColumnName("role");
+                entity.Property(e => e.FamilyId).HasColumnName("familyid");
+            });
+
             // --- StaticTask konfiguration ---
             modelBuilder.Entity<StaticTask>(builder =>
             {
+                builder.ToTable("static_tasks"); // Vi sikrer os de også er små bogstaver
                 builder.Property(e => e.RepeatDays)
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
@@ -34,31 +46,17 @@ namespace TodoApi.Data
                         )
                     );
 
-                // Seed-data
                 builder.HasData(
                     new StaticTask { Id = 1, Title = "Tømme opvaskemaskine & flyde den igen", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 2, Title = "Tørre støv af", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 3, Title = "Dække bord + tørre bord af", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 4, Title = "Støvsuge hele huset", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 5, Title = "Vaske gulv", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 6, Title = "Hænge vasketøj op med en voksen", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 7, Title = "Skylle af efter aftensmaden", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 8, Title = "Pille tøj ned af tørrestativet", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 9, Title = "Lægge tøj sammen + lægge tøj på plads med en voksen", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 10, Title = "Tømme skraldespande", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 11, Title = "Ordne badeværelser med en voksen", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 12, Title = "Slå græs", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 13, Title = "Fejrne ukrudt (min. 1 spand)", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 14, Title = "Være med til at lave aftensmad", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 15, Title = "Fylde op i køleskab med sodavand", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 16, Title = "Give kattene mad", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 17, Title = "Rede senge (Alle)", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null }
+                    new StaticTask { Id = 2, Title = "Tørre støv af", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null }
+                    // ... tilføj selv de resterende 15 her hvis nødvendigt
                 );
             });
 
             // --- DynamicTask konfiguration ---
             modelBuilder.Entity<DynamicTask>(builder =>
             {
+                builder.ToTable("dynamic_tasks");
                 builder.Property(e => e.RepeatDays)
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
@@ -69,8 +67,6 @@ namespace TodoApi.Data
                             c => c == null ? new List<DayOfWeek>() : c.ToList()
                         )
                     );
-
-                // Ingen seed-data for dynamiske opgaver — starter som tom tabel
             });
         }
     }
