@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.ChangeTracking; // Til ValueComparer
 using System.Text.Json; // Til JsonSerializer
 using System.Collections.Generic;
-using ToDoAPI.Models;
+using TodoApi.Models;
 using System;
 using System.Linq;
 
@@ -14,6 +14,7 @@ namespace TodoApi.Data
 
         public DbSet<StaticTask> StaticTasks { get; set; } = null!;
         public DbSet<DynamicTask> DynamicTasks { get; set; } = null!;
+        public DbSet<User> Users { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

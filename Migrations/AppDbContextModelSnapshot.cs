@@ -22,7 +22,7 @@ namespace TodoApi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("ToDoAPI.Models.DynamicTask", b =>
+            modelBuilder.Entity("TodoApi.Models.DynamicTask", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -54,7 +54,7 @@ namespace TodoApi.Migrations
                     b.ToTable("DynamicTasks");
                 });
 
-            modelBuilder.Entity("ToDoAPI.Models.StaticTask", b =>
+            modelBuilder.Entity("TodoApi.Models.StaticTask", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

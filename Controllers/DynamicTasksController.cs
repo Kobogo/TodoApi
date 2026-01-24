@@ -1,11 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Data;
-using ToDoAPI.Models;
+using TodoApi.Models;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 
-namespace ToDoAPI.Controllers
+namespace TodoApi.Controllers
 {
     [Authorize] // Kræver login
     [Route("api/[controller]")]

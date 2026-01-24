@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Data;
-using ToDoAPI.Models;
+using TodoApi.Models;
 using Microsoft.AspNetCore.Authorization;
 
-namespace ToDoAPI.Controllers
+namespace TodoApi.Controllers
 {
     [Authorize] // Kræver login
     [ApiController]
