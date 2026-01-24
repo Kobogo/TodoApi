@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using TodoApi.Data;
+using TodoApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Hent connection string
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -17,7 +19,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // --- JWT AUTHENTICATION SETUP ---
-var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN");
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_KEY") ?? "EnMegetLangFallbackNoegleSomKunBrugesLokalt123!";
+var key = Encoding.ASCII.GetBytes(jwtSecret);
+
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -50,20 +54,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI(c => {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
-    c.RoutePrefix = "swagger";
-});
-
-app.UseHttpsRedirection();
-app.UseCors("AllowAll");
-
-app.UseAuthentication(); // Vigtigt: Skal stå før Authorization
-app.UseAuthorization();
-
-app.MapControllers();
-// --- SIKRER AT DATABASEN OG TABELLER ER OPRETTET ---
+// --- SIKRER AT DATABASEN OG TABELLER ER OPRETTET (MIGRATION) ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -71,30 +62,58 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<AppDbContext>();
 
-        // 1. Opret tabeller hvis de ikke findes
-        context.Database.EnsureCreated();
+        Console.WriteLine("--- Database Initialisering Starter ---");
 
-        // 2. Hent seed-data fra miljøvariabler (Environment Variables)
-        // Hvis de ikke findes på Render, bruger den default værdier (kun til nød)
-        var seedUser = Environment.GetEnvironmentVariable("SEED_USER_NAME") ?? "Admin";
-        var seedPass = Environment.GetEnvironmentVariable("SEED_USER_PASS") ?? "SkiftMig123!";
+        // EnsureCreated tvinger PostgreSQL til at lave tabellerne ud fra din AppDbContext
+        bool created = context.Database.EnsureCreated();
+
+        if (created) {
+            Console.WriteLine("Status: Tabeller er blevet oprettet i Neon PostgreSQL.");
+        } else {
+            Console.WriteLine("Status: Tabeller findes allerede i databasen.");
+        }
+
+        // Hent seed-data fra Render Environment Variables
+        var seedUser = Environment.GetEnvironmentVariable("SEED_USER_NAME") ?? "Far";
+        var seedPass = Environment.GetEnvironmentVariable("SEED_USER_PASS") ?? "1234";
 
         if (!context.Users.Any())
         {
-            context.Users.Add(new TodoApi.Models.User
+            Console.WriteLine($"Status: Ingen brugere fundet. Opretter seed-bruger: {seedUser}");
+            context.Users.Add(new User
             {
                 Username = seedUser,
-                PasswordHash = seedPass, // I fremtiden: Brug PasswordHasher her!
+                PasswordHash = seedPass,
                 Role = "Parent",
                 FamilyId = 1
             });
             context.SaveChanges();
+            Console.WriteLine("Status: Seed-bruger oprettet succesfuldt.");
         }
+        Console.WriteLine("--- Database Initialisering Færdig ---");
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Fejl ved database-initialisering");
+        logger.LogError(ex, "KRITISK FEJL ved database-initialisering!");
+        // Vi skriver også til Console så det er nemt at se i Render Logs
+        Console.WriteLine($"FEJL: {ex.Message}");
     }
 }
+
+// Konfigurer HTTP request pipeline
+app.UseSwagger();
+app.UseSwaggerUI(c => {
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
+    c.RoutePrefix = "swagger"; // Gør Swagger tilgængelig på /swagger
+});
+
+app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
+
 app.Run();
