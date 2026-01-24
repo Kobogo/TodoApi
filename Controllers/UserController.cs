@@ -33,7 +33,7 @@ public class UserController : ControllerBase
         // 3. Setup JWT Token generering
         var tokenHandler = new JwtSecurityTokenHandler();
         // Vigtigt: Denne nøgle SKAL være identisk med den i Program.cs
-        var key = Encoding.ASCII.GetBytes("DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN");
+        var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN");
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

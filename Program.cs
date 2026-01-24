@@ -17,7 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 });
 
 // --- JWT AUTHENTICATION SETUP ---
-var key = Encoding.ASCII.GetBytes("DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN");
+var key = Encoding.ASCII.GetBytes(Environment.GetEnvironmentVariable("JWT_KEY") ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN");
 builder.Services.AddAuthentication(x =>
 {
     x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -66,21 +66,35 @@ app.MapControllers();
 // --- SIKRER AT DATABASEN OG TABELLER ER OPRETTET ---
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    // Denne linje kigger på din AppDbContext og opretter alt der mangler i Neon
-    context.Database.EnsureCreated();
-
-    // Valgfrit: Opret "Far" hvis han ikke findes, så du kan logge ind med det samme
-    if (!context.Users.Any())
+    var services = scope.ServiceProvider;
+    try
     {
-        context.Users.Add(new TodoApi.Models.User
+        var context = services.GetRequiredService<AppDbContext>();
+
+        // 1. Opret tabeller hvis de ikke findes
+        context.Database.EnsureCreated();
+
+        // 2. Hent seed-data fra miljøvariabler (Environment Variables)
+        // Hvis de ikke findes på Render, bruger den default værdier (kun til nød)
+        var seedUser = Environment.GetEnvironmentVariable("SEED_USER_NAME") ?? "Admin";
+        var seedPass = Environment.GetEnvironmentVariable("SEED_USER_PASS") ?? "SkiftMig123!";
+
+        if (!context.Users.Any())
         {
-            Username = "Far",
-            PasswordHash = "1234",
-            Role = "Parent",
-            FamilyId = 1
-        });
-        context.SaveChanges();
+            context.Users.Add(new TodoApi.Models.User
+            {
+                Username = seedUser,
+                PasswordHash = seedPass, // I fremtiden: Brug PasswordHasher her!
+                Role = "Parent",
+                FamilyId = 1
+            });
+            context.SaveChanges();
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Fejl ved database-initialisering");
     }
 }
 app.Run();
