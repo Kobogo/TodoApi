@@ -7,6 +7,7 @@ using TodoApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Hent connection string fra appsettings.json eller Render
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -17,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     });
 });
 
+// --- JWT AUTHENTICATION SETUP ---
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_KEY") ?? "EnMegetLangFallbackNoegleSomKunBrugesLokalt123!";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
 
@@ -52,39 +54,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<AppDbContext>();
-        Console.WriteLine("--- Database Check Starter ---");
-
-        // Da du har lavet tabellerne manuelt, vil denne linje blot konstatere de findes
-        context.Database.EnsureCreated();
-
-        if (!context.Users.Any())
-        {
-            var seedUser = Environment.GetEnvironmentVariable("SEED_USER_NAME") ?? "Far";
-            var seedPass = Environment.GetEnvironmentVariable("SEED_USER_PASS") ?? "1234";
-
-            context.Users.Add(new User
-            {
-                Username = seedUser,
-                PasswordHash = seedPass,
-                Role = "Parent",
-                FamilyId = 1
-            });
-            context.SaveChanges();
-            Console.WriteLine("Seed-bruger oprettet.");
-        }
-        Console.WriteLine("--- Database Check Færdig ---");
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"FEJL ved opstart: {ex.Message}");
-    }
-}
+// Vi har fjernet EnsureCreated herfra, da tabellerne er manuelt oprettet i Neon
 
 app.UseSwagger();
 app.UseSwaggerUI(c => {
@@ -94,8 +64,10 @@ app.UseSwaggerUI(c => {
 
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
+
 app.UseAuthentication();
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

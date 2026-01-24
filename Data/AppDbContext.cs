@@ -23,12 +23,14 @@ namespace TodoApi.Data
             // --- USER MAPPING (Vigtigt for Neon match) ---
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("users"); // Mapper til den tabel du ser i Neon
+                entity.ToTable("users");
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Username).HasColumnName("username");
                 entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
                 entity.Property(e => e.Role).HasColumnName("role");
-                entity.Property(e => e.FamilyId).HasColumnName("familyid");
+                entity.Property(e => e.FamilyId).HasColumnName("family_id");
+                entity.Property(e => e.TotalPoints).HasColumnName("total_points");
+                entity.Property(e => e.SavingsBalance).HasColumnName("savings_balance");
             });
 
             // --- StaticTask konfiguration ---
