@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 
 namespace TodoApi.Controllers
 {
-    [Authorize] // Kræver login
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class StaticTasksController : ControllerBase
@@ -22,14 +22,11 @@ namespace TodoApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int? userId)
         {
-            var query = _context.StaticTasks.AsQueryable();
+            // Henter både globale opgaver (null) og brugerens egne opgaver
+            var tasks = await _context.StaticTasks
+                .Where(t => t.UserId == null || (userId.HasValue && t.UserId == userId.Value))
+                .ToListAsync();
 
-            if (userId.HasValue)
-            {
-                query = query.Where(t => t.UserId == userId.Value);
-            }
-
-            var tasks = await query.ToListAsync();
             return Ok(tasks);
         }
 
@@ -50,14 +47,8 @@ namespace TodoApi.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!StaticTaskExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
+                if (!StaticTaskExists(id)) return NotFound();
+                else throw;
             }
 
             return NoContent();
