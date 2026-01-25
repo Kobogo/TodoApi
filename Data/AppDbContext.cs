@@ -14,30 +14,39 @@ namespace TodoApi.Data
 
         public DbSet<StaticTask> StaticTasks { get; set; } = null!;
         public DbSet<DynamicTask> DynamicTasks { get; set; } = null!;
-        public DbSet<User> Users { get; set; }
+        public DbSet<User> Users { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- USER MAPPING (Vigtigt for Neon match) ---
+            // --- USER MAPPING (camelCase) ---
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("users");
+                entity.ToTable("users"); // Tabellen hedder bare 'users'
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Username).HasColumnName("username");
-                entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+                entity.Property(e => e.PasswordHash).HasColumnName("passwordHash");
                 entity.Property(e => e.Role).HasColumnName("role");
-                entity.Property(e => e.FamilyId).HasColumnName("family_id");
-                entity.Property(e => e.TotalPoints).HasColumnName("total_points");
-                entity.Property(e => e.SavingsBalance).HasColumnName("savings_balance");
+                entity.Property(e => e.FamilyId).HasColumnName("familyId");
+                entity.Property(e => e.TotalPoints).HasColumnName("totalPoints");
+                entity.Property(e => e.SavingsBalance).HasColumnName("savingsBalance");
             });
 
-            // --- StaticTask konfiguration ---
+            // --- StaticTask konfiguration (camelCase) ---
             modelBuilder.Entity<StaticTask>(builder =>
             {
-                builder.ToTable("static_tasks"); // Vi sikrer os de også er små bogstaver
+                builder.ToTable("staticTasks");
+                builder.Property(e => e.Id).HasColumnName("id");
+                builder.Property(e => e.Title).HasColumnName("title");
+                builder.Property(e => e.IsCompleted).HasColumnName("isCompleted");
+                builder.Property(e => e.UserId).HasColumnName("userId");
+                builder.Property(e => e.TimeOfDay).HasColumnName("timeOfDay");
+                builder.Property(e => e.LastCompletedDate).HasColumnName("lastCompletedDate");
+                builder.Property(e => e.LastShownDate).HasColumnName("lastShownDate");
+
                 builder.Property(e => e.RepeatDays)
+                    .HasColumnName("repeatDays")
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
                         v => string.IsNullOrEmpty(v) ? new List<DayOfWeek>() : JsonSerializer.Deserialize<List<DayOfWeek>>(v, (JsonSerializerOptions)null),
@@ -48,18 +57,27 @@ namespace TodoApi.Data
                         )
                     );
 
+                // Seed data (Valgfrit - fjern hvis du hellere vil styre det manuelt i DB)
                 builder.HasData(
-                    new StaticTask { Id = 1, Title = "Tømme opvaskemaskine & flyde den igen", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null },
-                    new StaticTask { Id = 2, Title = "Tørre støv af", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), TimeOfDay = null }
-                    // ... tilføj selv de resterende 15 her hvis nødvendigt
+                    new StaticTask { Id = 1, Title = "Tømme opvaskemaskine", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), UserId = 1 },
+                    new StaticTask { Id = 2, Title = "Tørre støv af", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), UserId = 1 }
                 );
             });
 
-            // --- DynamicTask konfiguration ---
+            // --- DynamicTask konfiguration (camelCase) ---
             modelBuilder.Entity<DynamicTask>(builder =>
             {
-                builder.ToTable("dynamic_tasks");
+                builder.ToTable("dynamicTasks");
+                builder.Property(e => e.Id).HasColumnName("id");
+                builder.Property(e => e.Title).HasColumnName("title");
+                builder.Property(e => e.IsCompleted).HasColumnName("isCompleted");
+                builder.Property(e => e.UserId).HasColumnName("userId");
+                builder.Property(e => e.TimeOfDay).HasColumnName("timeOfDay");
+                builder.Property(e => e.LastCompletedDate).HasColumnName("lastCompletedDate");
+                builder.Property(e => e.LastShownDate).HasColumnName("lastShownDate");
+
                 builder.Property(e => e.RepeatDays)
+                    .HasColumnName("repeatDays")
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions)null),
                         v => string.IsNullOrEmpty(v) ? new List<DayOfWeek>() : JsonSerializer.Deserialize<List<DayOfWeek>>(v, (JsonSerializerOptions)null),
