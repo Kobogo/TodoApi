@@ -22,12 +22,38 @@ namespace TodoApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int? userId)
         {
-            // Henter både globale opgaver (null) og brugerens egne opgaver
-            var tasks = await _context.StaticTasks
-                .Where(t => t.UserId == null || (userId.HasValue && t.UserId == userId.Value))
-                .ToListAsync();
+            // Vi henter listen i to trin for at sikre, at PostgreSQL håndterer NULL korrekt.
+            // Først definerer vi basen: alle globale opgaver.
+            var query = _context.StaticTasks.AsQueryable();
+
+            List<StaticTask> tasks;
+
+            if (userId.HasValue)
+            {
+                // Hent opgaver der enten er fælles (null) ELLER tilhører brugeren
+                tasks = await query
+                    .Where(t => t.UserId == null || t.UserId == userId.Value)
+                    .ToListAsync();
+            }
+            else
+            {
+                // Hvis intet userId sendes, henter vi kun de globale
+                tasks = await query
+                    .Where(t => t.UserId == null)
+                    .ToListAsync();
+            }
 
             return Ok(tasks);
+        }
+
+        // POST: api/StaticTasks
+        [HttpPost]
+        public async Task<ActionResult<StaticTask>> PostStaticTask([FromBody] StaticTask task)
+        {
+            _context.StaticTasks.Add(task);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetAll), new { userId = task.UserId }, task);
         }
 
         // PUT: api/StaticTasks/{id}
@@ -62,6 +88,8 @@ namespace TodoApi.Controllers
             if (task == null) return NotFound();
 
             task.IsCompleted = isCompleted;
+
+            // Vi bruger DateTime.UtcNow for at undgå tidszone-problemer i PostgreSQL
             if (isCompleted) task.LastCompletedDate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
