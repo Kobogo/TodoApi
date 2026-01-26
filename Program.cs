@@ -8,7 +8,7 @@ using TodoApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Hent connection string fra appsettings.json eller Render
+// 1. DATABASE SETUP
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -19,7 +19,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     });
 });
 
-// --- JWT AUTHENTICATION SETUP ---
+// 2. JWT AUTHENTICATION SETUP
+// Vi bruger den samme nøgle som i UserController til at validere indkommende tokens
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_KEY") ?? "EnMegetLangFallbackNoegleSomKunBrugesLokalt123!";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
 
@@ -37,30 +38,37 @@ builder.Services.AddAuthentication(x =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
-        ValidateAudience = false
+        ValidateAudience = false,
+        // VIGTIGT: Fortæller systemet at det skal kigge efter roller i det korrekte Claim
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role
     };
 });
 
+// 3. CORS SETUP
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin();
+        policy.AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowAnyOrigin();
     });
 });
 
+// 4. CONTROLLERS & JSON SETUP
 builder.Services.AddControllers()
-.AddJsonOptions(options =>
+    .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Vi har fjernet EnsureCreated herfra, da tabellerne er manuelt oprettet i Neon
-
+// 5. MIDDLEWARE PIPELINE
+// Swagger skal altid ligge øverst så det er tilgængeligt
 app.UseSwagger();
 app.UseSwaggerUI(c => {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
@@ -68,9 +76,14 @@ app.UseSwaggerUI(c => {
 });
 
 app.UseHttpsRedirection();
+
+// CORS skal ligge før Authentication
 app.UseCors("AllowAll");
 
+// Authentication tjekker HVEM du er (Token validering)
 app.UseAuthentication();
+
+// Authorization tjekker HVAD du må (Rolle tjek f.eks. "Parent")
 app.UseAuthorization();
 
 app.MapControllers();
