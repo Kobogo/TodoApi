@@ -20,10 +20,10 @@ namespace TodoApi.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- USER MAPPING (camelCase) ---
+            // --- USER MAPPING (matcher dine små camelCase navne i Neon) ---
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("users"); // Tabellen hedder bare 'users'
+                entity.ToTable("users");
                 entity.Property(e => e.Id).HasColumnName("id");
                 entity.Property(e => e.Username).HasColumnName("username");
                 entity.Property(e => e.PasswordHash).HasColumnName("passwordHash");
@@ -31,9 +31,10 @@ namespace TodoApi.Data
                 entity.Property(e => e.FamilyId).HasColumnName("familyId");
                 entity.Property(e => e.TotalPoints).HasColumnName("totalPoints");
                 entity.Property(e => e.SavingsBalance).HasColumnName("savingsBalance");
+                entity.Property(e => e.FamilyName).HasColumnName("familyName"); // NU TILFØJET
             });
 
-            // --- StaticTask konfiguration (camelCase) ---
+            // --- StaticTask konfiguration ---
             modelBuilder.Entity<StaticTask>(builder =>
             {
                 builder.ToTable("staticTasks");
@@ -56,15 +57,9 @@ namespace TodoApi.Data
                             c => c == null ? new List<DayOfWeek>() : c.ToList()
                         )
                     );
-
-                // Seed data (Valgfrit - fjern hvis du hellere vil styre det manuelt i DB)
-                builder.HasData(
-                    new StaticTask { Id = 1, Title = "Tømme opvaskemaskine", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), UserId = 1 },
-                    new StaticTask { Id = 2, Title = "Tørre støv af", IsCompleted = false, RepeatDays = new List<DayOfWeek>(), UserId = 1 }
-                );
             });
 
-            // --- DynamicTask konfiguration (camelCase) ---
+            // --- DynamicTask konfiguration ---
             modelBuilder.Entity<DynamicTask>(builder =>
             {
                 builder.ToTable("dynamicTasks");
