@@ -14,13 +14,14 @@ namespace TodoApi.Controllers
     public class LoginRequest
     {
         public string Username { get; set; } = string.Empty;
-        public string PasswordHash { get; set; } = string.Empty; // Dette er kodeordet i klartekst fra frontenden
+        public string PasswordHash { get; set; } = string.Empty;
     }
 
     public class RegisterRequest
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string? FamilyName { get; set; } // Tilføjet til at modtage f.eks. "Bang"
     }
 
     [ApiController]
@@ -42,7 +43,6 @@ namespace TodoApi.Controllers
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.Username == loginInfo.Username);
 
-                // Vi bruger BCrypt til at verificere det indtastede kodeord mod den hashede version i databasen
                 if (user == null || !BCrypt.Net.BCrypt.Verify(loginInfo.PasswordHash, user.PasswordHash))
                 {
                     return Unauthorized(new { message = "Forkert brugernavn eller adgangskode" });
@@ -50,7 +50,7 @@ namespace TodoApi.Controllers
 
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
-                             ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN";
+                             ?? "EnMegetLangFallbackNoegleSomKunBrugesLokalt123!";
                 var key = Encoding.ASCII.GetBytes(jwtKey);
 
                 var tokenDescriptor = new SecurityTokenDescriptor
@@ -80,7 +80,8 @@ namespace TodoApi.Controllers
                         Id = user.Id,
                         Username = user.Username,
                         Role = user.Role,
-                        FamilyId = user.FamilyId
+                        FamilyId = user.FamilyId,
+                        FamilyName = user.FamilyName
                     }
                 });
             }
@@ -93,30 +94,39 @@ namespace TodoApi.Controllers
         [HttpPost("register-parent")]
         public async Task<IActionResult> RegisterParent([FromBody] RegisterRequest request)
         {
-            if (await _context.Users.AnyAsync(u => u.Username == request.Username))
-                return BadRequest(new { message = "Brugernavnet er optaget" });
-
-            // Find det næste ledige FamilyId
-            int nextFamilyId = 1;
-            if (await _context.Users.AnyAsync())
+            try
             {
-                nextFamilyId = (await _context.Users.MaxAsync(u => u.FamilyId ?? 0)) + 1;
+                if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+                    return BadRequest(new { message = "Brugernavnet er optaget" });
+
+                // Find det næste ledige FamilyId
+                int nextFamilyId = 1;
+                if (await _context.Users.AnyAsync())
+                {
+                    var maxId = await _context.Users.MaxAsync(u => u.FamilyId ?? 0);
+                    nextFamilyId = maxId + 1;
+                }
+
+                var newUser = new User
+                {
+                    Username = request.Username,
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                    Role = "Parent",
+                    FamilyId = nextFamilyId,
+                    FamilyName = request.FamilyName, // Gemmer familienavnet fra frontenden
+                    TotalPoints = 0,
+                    SavingsBalance = 0
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = $"Familien {request.FamilyName} er oprettet!" });
             }
-
-            var newUser = new User
+            catch (Exception ex)
             {
-                Username = request.Username,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password), // HASHER KODEORD
-                Role = "Parent",
-                FamilyId = nextFamilyId,
-                TotalPoints = 0,
-                SavingsBalance = 0
-            };
-
-            _context.Users.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Forælder og familie oprettet!" });
+                return StatusCode(500, new { message = "Fejl ved oprettelse af forælder", error = ex.Message });
+            }
         }
 
         [HttpPost("register-child")]
@@ -137,9 +147,10 @@ namespace TodoApi.Controllers
                 var child = new User
                 {
                     Username = request.Username,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password), // HASHER KODEORD
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     Role = "Child",
                     FamilyId = parent.FamilyId,
+                    FamilyName = parent.FamilyName, // Barnet arver automatisk familienavnet
                     TotalPoints = 0,
                     SavingsBalance = 0
                 };
@@ -155,7 +166,6 @@ namespace TodoApi.Controllers
             }
         }
 
-        // --- Hent alle familiemedlemmer (til Dashboard) ---
         [HttpGet("family")]
         [Authorize]
         public async Task<IActionResult> GetFamilyMembers()
@@ -173,7 +183,8 @@ namespace TodoApi.Controllers
                         u.Id,
                         u.Username,
                         u.Role,
-                        u.TotalPoints
+                        u.TotalPoints,
+                        u.FamilyName
                     })
                     .ToListAsync();
 
