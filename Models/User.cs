@@ -9,4 +9,5 @@ public class User
     public int? FamilyId { get; set; }
     public int TotalPoints { get; set; } = 0;
     public decimal SavingsBalance { get; set; } = 0;
+    public string FamilyName { get; set; }
 }
