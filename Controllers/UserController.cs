@@ -21,7 +21,12 @@ namespace TodoApi.Controllers
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public string? FamilyName { get; set; } // Tilføjet til at modtage f.eks. "Bang"
+        public string? FamilyName { get; set; }
+    }
+
+    public class UpdateRoleRequest
+    {
+        public string Role { get; set; } = "Child";
     }
 
     [ApiController]
@@ -99,7 +104,6 @@ namespace TodoApi.Controllers
                 if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                     return BadRequest(new { message = "Brugernavnet er optaget" });
 
-                // Find det næste ledige FamilyId
                 int nextFamilyId = 1;
                 if (await _context.Users.AnyAsync())
                 {
@@ -113,7 +117,7 @@ namespace TodoApi.Controllers
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     Role = "Parent",
                     FamilyId = nextFamilyId,
-                    FamilyName = request.FamilyName, // Gemmer familienavnet fra frontenden
+                    FamilyName = request.FamilyName,
                     TotalPoints = 0,
                     SavingsBalance = 0
                 };
@@ -150,7 +154,7 @@ namespace TodoApi.Controllers
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                     Role = "Child",
                     FamilyId = parent.FamilyId,
-                    FamilyName = parent.FamilyName, // Barnet arver automatisk familienavnet
+                    FamilyName = parent.FamilyName,
                     TotalPoints = 0,
                     SavingsBalance = 0
                 };
@@ -196,22 +200,39 @@ namespace TodoApi.Controllers
             }
         }
 
-        [HttpGet("children")]
-        public async Task<IActionResult> GetChildren()
+        // OPDATER ROLLE (Parent kan ændre andres roller)
+        [HttpPatch("{id}/role")]
+        [Authorize(Roles = "Parent")]
+        public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleRequest request)
         {
-            try
-            {
-                var children = await _context.Users
-                    .Where(u => u.Role == "Child")
-                    .Select(u => new { u.Id, u.Username, u.TotalPoints })
-                    .ToListAsync();
+            var userToUpdate = await _context.Users.FindAsync(id);
+            if (userToUpdate == null) return NotFound();
 
-                return Ok(children);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = ex.Message });
-            }
+            // Sikr at forælderen kun ændrer folk i sin egen familie
+            var familyIdClaim = User.FindFirst("FamilyId")?.Value;
+            if (userToUpdate.FamilyId.ToString() != familyIdClaim) return Forbid();
+
+            userToUpdate.Role = request.Role;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Rolle opdateret" });
+        }
+
+        // SLET BRUGER
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Parent")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var userToDelete = await _context.Users.FindAsync(id);
+            if (userToDelete == null) return NotFound();
+
+            var familyIdClaim = User.FindFirst("FamilyId")?.Value;
+            if (userToDelete.FamilyId.ToString() != familyIdClaim) return Forbid();
+
+            _context.Users.Remove(userToDelete);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Bruger slettet fra familien" });
         }
     }
 }
