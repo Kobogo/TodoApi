@@ -22,7 +22,7 @@ namespace TodoApi.Controllers
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string? FamilyName { get; set; }
-        public string? Role { get; set; } // Tilføjet for at modtage rollen fra frontend
+        public string? Role { get; set; }
     }
 
     public class UpdateRoleRequest
@@ -153,7 +153,6 @@ namespace TodoApi.Controllers
                 {
                     Username = request.Username,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                    // Her tjekker vi nu om der er sendt en specifik rolle, ellers fallback til "Child"
                     Role = !string.IsNullOrEmpty(request.Role) ? request.Role : "Child",
                     FamilyId = parent.FamilyId,
                     FamilyName = parent.FamilyName,
@@ -222,16 +221,33 @@ namespace TodoApi.Controllers
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var userToDelete = await _context.Users.FindAsync(id);
-            if (userToDelete == null) return NotFound();
+            try
+            {
+                var userToDelete = await _context.Users.FindAsync(id);
+                if (userToDelete == null) return NotFound();
 
-            var familyIdClaim = User.FindFirst("FamilyId")?.Value;
-            if (userToDelete.FamilyId.ToString() != familyIdClaim) return Forbid();
+                var familyIdClaim = User.FindFirst("FamilyId")?.Value;
+                if (userToDelete.FamilyId.ToString() != familyIdClaim) return Forbid();
 
-            _context.Users.Remove(userToDelete);
-            await _context.SaveChangesAsync();
+                // 1. Slet alle DynamicTasks knyttet til brugeren
+                var dynamicTasks = await _context.DynamicTasks.Where(t => t.UserId == id).ToListAsync();
+                if (dynamicTasks.Any()) _context.DynamicTasks.RemoveRange(dynamicTasks);
 
-            return Ok(new { message = "Bruger slettet fra familien" });
+                // 2. Slet alle StaticTasks knyttet til brugeren
+                var staticTasks = await _context.StaticTasks.Where(t => t.UserId == id).ToListAsync();
+                if (staticTasks.Any()) _context.StaticTasks.RemoveRange(staticTasks);
+
+                // 3. Slet selve brugeren
+                _context.Users.Remove(userToDelete);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Bruger og alle tilhørende opgaver slettet" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Fejl ved sletning", error = ex.Message });
+            }
         }
     }
 }
