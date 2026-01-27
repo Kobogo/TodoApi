@@ -97,6 +97,19 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
+        // DELETE: api/StaticTasks/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteStaticTask(int id)
+        {
+            var task = await _context.StaticTasks.FindAsync(id);
+            if (task == null) return NotFound();
+
+            _context.StaticTasks.Remove(task);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
         private bool StaticTaskExists(int id)
         {
             return _context.StaticTasks.Any(e => e.Id == id);
