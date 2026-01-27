@@ -22,6 +22,7 @@ namespace TodoApi.Controllers
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string? FamilyName { get; set; }
+        public string? Role { get; set; } // Tilføjet for at modtage rollen fra frontend
     }
 
     public class UpdateRoleRequest
@@ -152,7 +153,8 @@ namespace TodoApi.Controllers
                 {
                     Username = request.Username,
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                    Role = "Child",
+                    // Her tjekker vi nu om der er sendt en specifik rolle, ellers fallback til "Child"
+                    Role = !string.IsNullOrEmpty(request.Role) ? request.Role : "Child",
                     FamilyId = parent.FamilyId,
                     FamilyName = parent.FamilyName,
                     TotalPoints = 0,
@@ -162,7 +164,7 @@ namespace TodoApi.Controllers
                 _context.Users.Add(child);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = "Barn tilføjet til familien!" });
+                return Ok(new { message = $"{child.Username} er tilføjet som {child.Role}!" });
             }
             catch (Exception ex)
             {
@@ -200,7 +202,6 @@ namespace TodoApi.Controllers
             }
         }
 
-        // OPDATER ROLLE (Parent kan ændre andres roller)
         [HttpPatch("{id}/role")]
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleRequest request)
@@ -208,7 +209,6 @@ namespace TodoApi.Controllers
             var userToUpdate = await _context.Users.FindAsync(id);
             if (userToUpdate == null) return NotFound();
 
-            // Sikr at forælderen kun ændrer folk i sin egen familie
             var familyIdClaim = User.FindFirst("FamilyId")?.Value;
             if (userToUpdate.FamilyId.ToString() != familyIdClaim) return Forbid();
 
@@ -218,7 +218,6 @@ namespace TodoApi.Controllers
             return Ok(new { message = "Rolle opdateret" });
         }
 
-        // SLET BRUGER
         [HttpDelete("{id}")]
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> DeleteUser(int id)
