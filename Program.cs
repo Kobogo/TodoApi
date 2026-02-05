@@ -63,6 +63,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
 
+builder.Services.AddHostedService<TaskNotificationWorker>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -75,9 +76,6 @@ app.UseSwaggerUI(c => {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
     c.RoutePrefix = "swagger";
 });
-
-// Til at køre baggrundsopgaver (f.eks. sende notifikationer)
-builder.Services.AddHostedService<TaskNotificationWorker>();
 
 app.UseHttpsRedirection();
 
