@@ -69,20 +69,40 @@ namespace TodoApi.Services{
                 body = taskTitle
             });
 
+            // 1. Opret subscription objektet fra databasen
             var pushSub = new PushSubscription(sub.Endpoint, sub.P256dh, sub.Auth);
+
+            // 2. Hent VAPID detaljer fra IConfiguration
+            // VIGTIGT: Vi bruger "VapidDetails:..." fordi det er navnet i din appsettings.json
             var vapidDetails = new VapidDetails(
-                "mailto:din@email.dk",
-                _config["Vapid:PublicKey"],
-                _config["Vapid:PrivateKey"]
+                _config["VapidDetails:subject"],
+                _config["VapidDetails:publicKey"],
+                _config["VapidDetails:privateKey"]
             );
 
             var client = new WebPushClient();
-            try {
+            try
+            {
+                // 3. Send notifikationen
                 await client.SendNotificationAsync(pushSub, payload, vapidDetails);
-            } catch (WebPushException ex) {
-                // Hvis browseren siger "410 Gone", betyder det brugeren har afmeldt sig.
-                // Her bør du slette 'sub' fra databasen.
-                Console.WriteLine($"Push fejlede: {ex.StatusCode}");
+                Console.WriteLine($"✅ Push sendt til bruger: {sub.UserId}");
+            }
+            catch (WebPushException ex)
+            {
+                // 410 Gone betyder at token ikke længere er gyldig (brugeren har blokeret eller slettet app)
+                if (ex.StatusCode == System.Net.HttpStatusCode.Gone)
+                {
+                    Console.WriteLine($"🚫 Subscription er udløbet for bruger {sub.UserId}. Bør slettes.");
+                    // Her kunne du tilføje logik til at fjerne sub fra databasen
+                }
+                else
+                {
+                    Console.WriteLine($"❌ Push fejlede med status: {ex.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Generel fejl ved push: {ex.Message}");
             }
         }
     }
