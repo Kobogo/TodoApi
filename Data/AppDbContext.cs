@@ -11,7 +11,7 @@ namespace TodoApi.Data
     public class AppDbContext : DbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
+        public DbSet<PushSubscriptionEntity> PushSubscriptions { get; set; }
         public DbSet<StaticTask> StaticTasks { get; set; } = null!;
         public DbSet<DynamicTask> DynamicTasks { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;

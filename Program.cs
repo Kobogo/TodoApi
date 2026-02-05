@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text.Json;
 using System.Text;
 using TodoApi.Data;
+using TodoApi.Services;
 using TodoApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -74,6 +75,9 @@ app.UseSwaggerUI(c => {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
     c.RoutePrefix = "swagger";
 });
+
+// Til at køre baggrundsopgaver (f.eks. sende notifikationer)
+builder.Services.AddHostedService<TaskNotificationWorker>();
 
 app.UseHttpsRedirection();
 
