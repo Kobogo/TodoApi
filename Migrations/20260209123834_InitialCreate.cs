@@ -9,13 +9,17 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace TodoApi.Migrations
 {
     /// <inheritdoc />
-    public partial class FixForNeonTables : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.EnsureSchema(
+                name: "TodoApi");
+
             migrationBuilder.CreateTable(
                 name: "families",
+                schema: "TodoApi",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -30,6 +34,7 @@ namespace TodoApi.Migrations
 
             migrationBuilder.CreateTable(
                 name: "users",
+                schema: "TodoApi",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -48,6 +53,7 @@ namespace TodoApi.Migrations
                     table.ForeignKey(
                         name: "FK_users_families_familyId",
                         column: x => x.familyId,
+                        principalSchema: "TodoApi",
                         principalTable: "families",
                         principalColumn: "id",
                         onDelete: ReferentialAction.SetNull);
@@ -55,6 +61,7 @@ namespace TodoApi.Migrations
 
             migrationBuilder.CreateTable(
                 name: "dynamicTasks",
+                schema: "TodoApi",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -73,6 +80,7 @@ namespace TodoApi.Migrations
                     table.ForeignKey(
                         name: "FK_dynamicTasks_users_userId",
                         column: x => x.userId,
+                        principalSchema: "TodoApi",
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -80,6 +88,7 @@ namespace TodoApi.Migrations
 
             migrationBuilder.CreateTable(
                 name: "pushSubscriptions",
+                schema: "TodoApi",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -96,6 +105,7 @@ namespace TodoApi.Migrations
                     table.ForeignKey(
                         name: "FK_pushSubscriptions_users_userId",
                         column: x => x.userId,
+                        principalSchema: "TodoApi",
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
@@ -103,6 +113,7 @@ namespace TodoApi.Migrations
 
             migrationBuilder.CreateTable(
                 name: "staticTasks",
+                schema: "TodoApi",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
@@ -121,17 +132,20 @@ namespace TodoApi.Migrations
                     table.ForeignKey(
                         name: "FK_staticTasks_users_userId",
                         column: x => x.userId,
+                        principalSchema: "TodoApi",
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.InsertData(
+                schema: "TodoApi",
                 table: "families",
                 columns: new[] { "id", "created_at", "familyName" },
-                values: new object[] { 1, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), "Bang" });
+                values: new object[] { 1, new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), "Bang" });
 
             migrationBuilder.InsertData(
+                schema: "TodoApi",
                 table: "staticTasks",
                 columns: new[] { "id", "isCompleted", "lastCompletedDate", "lastShownDate", "repeatDays", "timeOfDay", "title", "userId" },
                 values: new object[,]
@@ -157,21 +171,25 @@ namespace TodoApi.Migrations
 
             migrationBuilder.CreateIndex(
                 name: "IX_dynamicTasks_userId",
+                schema: "TodoApi",
                 table: "dynamicTasks",
                 column: "userId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_pushSubscriptions_userId",
+                schema: "TodoApi",
                 table: "pushSubscriptions",
                 column: "userId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_staticTasks_userId",
+                schema: "TodoApi",
                 table: "staticTasks",
                 column: "userId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_users_familyId",
+                schema: "TodoApi",
                 table: "users",
                 column: "familyId");
         }
@@ -180,19 +198,24 @@ namespace TodoApi.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "dynamicTasks");
+                name: "dynamicTasks",
+                schema: "TodoApi");
 
             migrationBuilder.DropTable(
-                name: "pushSubscriptions");
+                name: "pushSubscriptions",
+                schema: "TodoApi");
 
             migrationBuilder.DropTable(
-                name: "staticTasks");
+                name: "staticTasks",
+                schema: "TodoApi");
 
             migrationBuilder.DropTable(
-                name: "users");
+                name: "users",
+                schema: "TodoApi");
 
             migrationBuilder.DropTable(
-                name: "families");
+                name: "families",
+                schema: "TodoApi");
         }
     }
 }

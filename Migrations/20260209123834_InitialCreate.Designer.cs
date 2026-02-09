@@ -12,14 +12,15 @@ using TodoApi.Data;
 namespace TodoApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260209093109_FixForNeonTables")]
-    partial class FixForNeonTables
+    [Migration("20260209123834_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("TodoApi")
                 .HasAnnotation("ProductVersion", "8.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
@@ -67,7 +68,7 @@ namespace TodoApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("dynamicTasks", (string)null);
+                    b.ToTable("dynamicTasks", "TodoApi");
                 });
 
             modelBuilder.Entity("TodoApi.Models.Family", b =>
@@ -90,13 +91,13 @@ namespace TodoApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("families", (string)null);
+                    b.ToTable("families", "TodoApi");
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             FamilyName = "Bang"
                         });
                 });
@@ -137,7 +138,7 @@ namespace TodoApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("pushSubscriptions", (string)null);
+                    b.ToTable("pushSubscriptions", "TodoApi");
                 });
 
             modelBuilder.Entity("TodoApi.Models.StaticTask", b =>
@@ -182,7 +183,7 @@ namespace TodoApi.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("staticTasks", (string)null);
+                    b.ToTable("staticTasks", "TodoApi");
 
                     b.HasData(
                         new
@@ -333,7 +334,7 @@ namespace TodoApi.Migrations
 
                     b.HasIndex("FamilyId");
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", "TodoApi");
                 });
 
             modelBuilder.Entity("TodoApi.Models.DynamicTask", b =>
