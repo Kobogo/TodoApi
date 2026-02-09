@@ -2,7 +2,8 @@ using TodoApi.Models;
 using System;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
-using BCrypt.Net; // Tilføj denne!
+using Microsoft.EntityFrameworkCore;
+using BCrypt.Net;
 
 namespace TodoApi.Data
 {
@@ -10,23 +11,27 @@ namespace TodoApi.Data
     {
         public static void Seed(AppDbContext context, IConfiguration configuration)
         {
-            context.Database.EnsureCreated();
+            // SKIFT DETTE: EnsureCreated() er upålidelig med schemas.
+            // Brug Migrate() i Program.cs som vi aftalte,
+            // eller kør den her for at være sikker:
+            context.Database.Migrate();
 
-            // 1. Tjek om admin-brugeren findes (vi tjekker på navnet fra config)
+            // 1. Tjek om admin-brugeren findes
             var seedName = configuration["SEED_USER_NAME"] ?? "Far";
+
+            // Vi pakker det ind i en Try-Catch eller sikrer os tabellen er der
             if (context.Users.Any(u => u.Username == seedName)) return;
 
-            // 2. Hent password fra Render/Config
+            // 2. Hent password
             var seedPass = configuration["SEED_USER_PASS"] ?? "1234";
 
-            // 3. HASH PASSWORDET HER
-            // Dette forvandler "1234" til noget i stil med "$2a$11$iv3S..."
+            // 3. Hash passwordet
             string hashedContext = BCrypt.Net.BCrypt.HashPassword(seedPass);
 
             var adminUser = new User
             {
                 Username = seedName,
-                PasswordHash = hashedContext, // Gem den hashede version!
+                PasswordHash = hashedContext,
                 Role = "Admin",
                 FamilyId = 1,
                 FamilyName = "Bang",

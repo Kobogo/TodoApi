@@ -83,12 +83,11 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<AppDbContext>();
     var config = services.GetRequiredService<IConfiguration>();
+    context.Database.Migrate();
 
     // Kør vores nye Seed metode
     TodoApi.Data.DbInitializer.Seed(context, config);
 }
-
-app.Run();
 
 app.UseHttpsRedirection();
 
