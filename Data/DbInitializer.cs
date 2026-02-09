@@ -11,11 +11,6 @@ namespace TodoApi.Data
     {
         public static void Seed(AppDbContext context, IConfiguration configuration)
         {
-            // SKIFT DETTE: EnsureCreated() er upålidelig med schemas.
-            // Brug Migrate() i Program.cs som vi aftalte,
-            // eller kør den her for at være sikker:
-            context.Database.Migrate();
-
             // 1. Tjek om admin-brugeren findes
             var seedName = configuration["SEED_USER_NAME"] ?? "Far";
 

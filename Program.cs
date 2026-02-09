@@ -18,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, npgsqlOptions =>
     {
         npgsqlOptions.EnableRetryOnFailure();
+        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "TodoApi");
     });
 });
 
