@@ -14,7 +14,7 @@ namespace TodoApi.Controllers
     public class LoginRequest
     {
         public string Username { get; set; } = string.Empty;
-        public string PasswordHash { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
     }
 
     public class RegisterRequest
@@ -49,7 +49,7 @@ namespace TodoApi.Controllers
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.Username == loginInfo.Username);
 
-                if (user == null || !BCrypt.Net.BCrypt.Verify(loginInfo.PasswordHash, user.PasswordHash))
+                if (user == null || !BCrypt.Net.BCrypt.Verify(loginInfo.Password, user.PasswordHash))
                 {
                     return Unauthorized(new { message = "Forkert brugernavn eller adgangskode" });
                 }

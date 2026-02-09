@@ -7,6 +7,7 @@ using TodoApi.Data;
 using TodoApi.Services;
 using TodoApi.Models;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. DATABASE SETUP
@@ -76,6 +77,18 @@ app.UseSwaggerUI(c => {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
     c.RoutePrefix = "swagger";
 });
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<AppDbContext>();
+    var config = services.GetRequiredService<IConfiguration>();
+
+    // Kør vores nye Seed metode
+    TodoApi.Data.DbInitializer.Seed(context, config);
+}
+
+app.Run();
 
 app.UseHttpsRedirection();
 

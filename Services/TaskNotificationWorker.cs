@@ -15,12 +15,12 @@ namespace TodoApi.Services{
             _config = config;
         }
 
+        // ... (toppen af filen er uændret)
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                // 1. Lav det nuværende tidspunkt om til en TimeSpan (f.eks. 14:30:00)
-                // Vi fjerner sekunderne, så vi matcher præcis på minuttet.
                 var nuDateTime = DateTime.Now;
                 var nuTimeSpan = new TimeSpan(nuDateTime.Hour, nuDateTime.Minute, 0);
 
@@ -28,26 +28,25 @@ namespace TodoApi.Services{
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                    // 2. Find statiske opgaver
+                    // 2. Find statiske opgaver (UserId er allerede int, så ingen cast nødvendig)
                     var staticTasks = db.StaticTasks
-                        .Where(t => t.TimeOfDay == nuTimeSpan && !t.IsCompleted)
-                        .Select(t => new { UserId = (int)t.UserId, t.Title }) // Tving til int
+                        .Where(t => t.TimeOfDay == nuTimeSpan && !t.IsCompleted && t.UserId != null)
+                        .Select(t => new { UserId = t.UserId.Value, t.Title })
                         .ToList();
 
                     // 3. Find dynamiske opgaver
                     var dynamicTasks = db.DynamicTasks
                         .Where(t => t.TimeOfDay == nuTimeSpan && !t.IsCompleted)
-                        .Select(t => new { UserId = (int)t.UserId, t.Title }) // Tving til int
+                        .Select(t => new { UserId = t.UserId, t.Title })
                         .ToList();
 
-                    // Nu er begge lister af typen <int, string>, og Concat virker!
                     var alleOpgaver = staticTasks.Concat(dynamicTasks).ToList();
 
                     foreach (var opgave in alleOpgaver)
                     {
-                        var userIdString = opgave.UserId.ToString();
+                        // RETTET: Vi sammenligner nu int direkte med int
                         var subs = db.PushSubscriptions
-                            .Where(s => s.UserId == userIdString)
+                            .Where(s => s.UserId == opgave.UserId)
                             .ToList();
 
                         foreach (var sub in subs)
@@ -57,7 +56,6 @@ namespace TodoApi.Services{
                     }
                 }
 
-                // Vent 60 sekunder
                 await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
             }
         }

@@ -8,7 +8,7 @@ namespace TodoApi.Models
         public int Id { get; set; }
 
         [Required]
-        public string UserId { get; set; } = string.Empty;
+        public int UserId { get; set; }
 
         // Selve URL'en til Google/Apples push-server
         [Required]
