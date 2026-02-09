@@ -20,6 +20,7 @@ namespace TodoApi.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.HasDefaultSchema("TodoApi");
             modelBuilder.UseSerialColumns();
             base.OnModelCreating(modelBuilder);
 
@@ -158,7 +159,7 @@ namespace TodoApi.Data
                 new Family {
                     Id = 1,
                     FamilyName = "Bang",
-                    CreatedAt = DateTime.Parse("2026-01-01")
+                    CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                 }
             );
         }
