@@ -64,7 +64,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("https://din-frontend-url.netlify.app", "http://localhost:5173") // Erstat med dine faktiske URLs
+        policy.WithOrigins("https://todorewardsapp.netlify.app", "http://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // <--- SKAL bruges når man sender cookies/tokens
