@@ -23,16 +23,20 @@ namespace TodoApi.Services{
         {
             while (!stoppingToken.IsCancellationRequested)
             {
-                var nuDateTime = DateTime.Now;
-                // Vi runder ned til hele minutter for at matche databasen
-                var nuTimeSpan = new TimeSpan(nuDateTime.Hour, nuDateTime.Minute, 0);
+                // 1. Hent den aktuelle tid i Dansk tid (ligesom i controlleren)
+                var info = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
+                var dkNu = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, info);
 
-                _logger.LogInformation("Worker tjekker databasen for tidspunkt: {time}", nuTimeSpan);
+                // 2. Rund ned til hele minutter
+                var nuTimeSpan = new TimeSpan(dkNu.Hour, dkNu.Minute, 0);
+
+                _logger.LogInformation("Worker tjekker databasen for DANSK tid: {time}", nuTimeSpan);
 
                 using (var scope = _services.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+                    // Hent opgaver der matcher den danske tid
                     var staticTasks = db.StaticTasks
                         .Where(t => t.TimeOfDay == nuTimeSpan && !t.IsCompleted && t.UserId != null)
                         .Select(t => new { t.Id, UserId = t.UserId.Value, t.Title })
@@ -40,12 +44,10 @@ namespace TodoApi.Services{
 
                     var dynamicTasks = db.DynamicTasks
                         .Where(t => t.TimeOfDay == nuTimeSpan && !t.IsCompleted)
-                        .Select(t => new { t.Id, UserId = t.UserId, t.Title })
+                        .Select(t => new { t.Id, t.UserId, t.Title })
                         .ToList();
 
-                    var alleOpgaver = staticTasks.Select(t => new { t.Id, t.UserId, t.Title })
-                        .Concat(dynamicTasks.Select(t => new { t.Id, t.UserId, t.Title }))
-                        .ToList();
+                    var alleOpgaver = staticTasks.Concat(dynamicTasks).ToList();
 
                     foreach (var opgave in alleOpgaver)
                     {
@@ -60,11 +62,9 @@ namespace TodoApi.Services{
                     }
                 }
 
-                // --- SMART TIMING LOGIK HER ---
-                // Find ud af hvor mange sekunder der er til det næste hele minut
-                var nu = DateTime.Now;
-                var næsteMinut = nu.AddMinutes(1).AddSeconds(-nu.Second).AddMilliseconds(-nu.Millisecond);
-                var ventetid = næsteMinut - nu;
+                // --- SMART TIMING (Brug dkNu her også for at beregne ventetid præcist) ---
+                var næsteMinut = dkNu.AddMinutes(1).AddSeconds(-dkNu.Second).AddMilliseconds(-dkNu.Millisecond);
+                var ventetid = næsteMinut - dkNu;
 
                 _logger.LogInformation("Venter {seconds} sekunder til næste tjek...", ventetid.TotalSeconds);
 
@@ -80,11 +80,8 @@ namespace TodoApi.Services{
                 data = new { taskId = taskId }
             });
 
-            // 1. Opret subscription objektet fra databasen
             var pushSub = new PushSubscription(sub.Endpoint, sub.P256dh, sub.Auth);
 
-            // 2. Hent VAPID detaljer fra IConfiguration
-            // VIGTIGT: Vi bruger "VapidDetails:..." fordi det er navnet i din appsettings.json
             var vapidDetails = new VapidDetails(
                 _config["VapidDetails:subject"],
                 _config["VapidDetails:publicKey"],
@@ -94,26 +91,38 @@ namespace TodoApi.Services{
             var client = new WebPushClient();
             try
             {
-                // 3. Send notifikationen
                 await client.SendNotificationAsync(pushSub, payload, vapidDetails);
-                Console.WriteLine($"✅ Push sendt til bruger: {sub.UserId}");
+                _logger.LogInformation("✅ Push sendt til bruger: {UserId}", sub.UserId);
             }
             catch (WebPushException ex)
             {
-                // 410 Gone betyder at token ikke længere er gyldig (brugeren har blokeret eller slettet app)
-                if (ex.StatusCode == System.Net.HttpStatusCode.Gone)
+                // 410 Gone eller 404 Not Found betyder begge at push-token ikke længere er gyldig
+                if (ex.StatusCode == System.Net.HttpStatusCode.Gone || ex.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    Console.WriteLine($"🚫 Subscription er udløbet for bruger {sub.UserId}. Bør slettes.");
-                    // Her kunne du tilføje logik til at fjerne sub fra databasen
+                    _logger.LogWarning("🚫 Subscription er udløbet for bruger {UserId}. Sletter fra database...", sub.UserId);
+
+                    using (var scope = _services.CreateScope())
+                    {
+                        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                        // Vi finder entiteten igen i denne nye context for at kunne slette den
+                        var toDelete = await db.PushSubscriptions.FindAsync(sub.Id);
+                        if (toDelete != null)
+                        {
+                            db.PushSubscriptions.Remove(toDelete);
+                            await db.SaveChangesAsync();
+                            _logger.LogInformation("🗑️ Udløbet subscription fjernet.");
+                        }
+                    }
                 }
                 else
                 {
-                    Console.WriteLine($"❌ Push fejlede med status: {ex.StatusCode}");
+                    _logger.LogError("❌ Push fejlede med status: {Status}", ex.StatusCode);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"⚠️ Generel fejl ved push: {ex.Message}");
+                _logger.LogError("⚠️ Generel fejl ved push: {Message}", ex.Message);
             }
         }
     }

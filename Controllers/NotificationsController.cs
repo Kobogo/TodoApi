@@ -86,7 +86,9 @@ namespace TodoApi.Controllers
         public async Task<IActionResult> SnoozeTask(int taskId)
         {
             // Vi rykker tiden 10 minutter frem
-            var snoozeTime = DateTime.Now.AddMinutes(10).TimeOfDay;
+            var dkTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+             TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
+            var snoozeTime = dkTime.AddMinutes(10).TimeOfDay;
             var roundedSnooze = new TimeSpan(snoozeTime.Hours, snoozeTime.Minutes, 0);
 
             var sTask = await _context.StaticTasks.FindAsync(taskId);
