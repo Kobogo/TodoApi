@@ -2,12 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using TodoApi.Models;
-using TodoApi.Data; // Ret til din Data-mappe
+using TodoApi.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace TodoApi.Controllers
 {
-    //[Authorize]
+    [Authorize] // Re-aktiveret: Nu kræves gyldigt token for alle kald i denne controller
     [ApiController]
     [Route("api/[controller]")]
     public class NotificationsController : ControllerBase
@@ -19,43 +19,50 @@ namespace TodoApi.Controllers
             _context = context;
         }
 
-        // [Authorize] // Udkommenteret for test
         [HttpPost("subscribe")]
         public async Task<IActionResult> Subscribe([FromBody] PushSubscriptionJSON model)
         {
-            Console.WriteLine("--- SUBSCRIBE METODE RAMT ---");
+            // 1. Udlæs UserId fra JWT token (ClaimTypes.NameIdentifier er standard for bruger-ID)
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (model == null) {
-                Console.WriteLine("❌ Modtaget model er NULL!");
-                return BadRequest("Data kunne ikke læses");
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                Console.WriteLine("❌ Kunne ikke finde UserId i Token");
+                return Unauthorized(new { message = "Ugyldigt bruger-id i token" });
             }
 
-            Console.WriteLine($"✅ Modtog endpoint: {model.Endpoint}");
+            if (model == null || string.IsNullOrEmpty(model.Endpoint)) {
+                return BadRequest("Ugyldig subscription data");
+            }
 
-            // Manuel udpakning af UserId for test (hvis Authorize er slået fra)
-            // Hvis du tester uden login, så indsæt et fast ID (f.eks. 1) for at se om det virker
-            int userId = 1;
-
+            // 2. Tjek om denne specifikke browser-endpoint allerede findes
             var existing = await _context.PushSubscriptions
                 .FirstOrDefaultAsync(s => s.Endpoint == model.Endpoint);
 
             if (existing == null)
             {
+                // 3. Opret ny hvis den ikke findes
                 var entity = new PushSubscriptionEntity
                 {
                     UserId = userId,
                     Endpoint = model.Endpoint,
-                    P256dh = model.Keys?.P256dh ?? "", // Brug ?. for at undgå crash hvis Keys mangler
+                    P256dh = model.Keys?.P256dh ?? "",
                     Auth = model.Keys?.Auth ?? "",
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _context.PushSubscriptions.Add(entity);
-                Console.WriteLine("💾 Forsøger at gemme ny subscription...");
+                Console.WriteLine($"💾 Gemmer ny Web Push for bruger {userId}");
+            }
+            else
+            {
+                // 4. Opdater eksisterende (hvis f.eks. en ny bruger logger ind på samme browser)
+                existing.UserId = userId;
+                existing.CreatedAt = DateTime.UtcNow;
+                Console.WriteLine($"🔄 Opdaterer eksisterende Web Push for bruger {userId}");
             }
 
             await _context.SaveChangesAsync();
-            Console.WriteLine("🎉 Gemt i database!");
             return Ok(new { message = "Subscription gemt succesfuldt!" });
         }
     }

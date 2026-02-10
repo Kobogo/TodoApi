@@ -24,7 +24,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // 2. JWT AUTHENTICATION SETUP
 // Vi bruger den samme nøgle som i UserController til at validere indkommende tokens
-var jwtSecret = Environment.GetEnvironmentVariable("JWT_KEY") ?? "EnMegetLangFallbackNoegleSomKunBrugesLokalt123!";
+var jwtSecret = Environment.GetEnvironmentVariable("JWT_KEY") ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
 
 builder.Services.AddAuthentication(x =>
