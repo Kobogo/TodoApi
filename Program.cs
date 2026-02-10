@@ -42,8 +42,8 @@ builder.Services.AddAuthentication(x =>
         IssuerSigningKey = new SymmetricSecurityKey(key),
         ValidateIssuer = false,
         ValidateAudience = false,
-        // VIGTIGT: Fortæller systemet at det skal kigge efter roller i det korrekte Claim
-        RoleClaimType = System.Security.Claims.ClaimTypes.Role
+        RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+        NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier
     };
 });
 

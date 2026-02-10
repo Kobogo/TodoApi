@@ -56,7 +56,7 @@ namespace TodoApi.Controllers
 
                 var tokenHandler = new JwtSecurityTokenHandler();
                 var jwtKey = Environment.GetEnvironmentVariable("JWT_KEY")
-                             ?? "EnMegetLangFallbackNoegleSomKunBrugesLokalt123!";
+                             ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN";
                 var key = Encoding.ASCII.GetBytes(jwtKey);
 
                 var tokenDescriptor = new SecurityTokenDescriptor
@@ -65,7 +65,7 @@ namespace TodoApi.Controllers
                     {
                         new Claim(ClaimTypes.Name, user.Username),
                         new Claim(ClaimTypes.Role, user.Role),
-                        new Claim("UserId", user.Id.ToString()),
+                        new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                         new Claim("FamilyId", user.FamilyId?.ToString() ?? "0")
                     }),
                     Expires = DateTime.UtcNow.AddDays(7),
