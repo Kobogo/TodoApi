@@ -65,5 +65,40 @@ namespace TodoApi.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { message = "Subscription gemt succesfuldt!" });
         }
+
+        [HttpPatch("complete/{taskId}")]
+        public async Task<IActionResult> CompleteTask(int taskId)
+        {
+            // Find opgaven i enten statiske eller dynamiske tasks
+            var sTask = await _context.StaticTasks.FindAsync(taskId);
+            if (sTask != null) sTask.IsCompleted = true;
+
+            var dTask = await _context.DynamicTasks.FindAsync(taskId);
+            if (dTask != null) dTask.IsCompleted = true;
+
+            if (sTask == null && dTask == null) return NotFound();
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        [HttpPatch("snooze/{taskId}")]
+        public async Task<IActionResult> SnoozeTask(int taskId)
+        {
+            // Vi rykker tiden 10 minutter frem
+            var snoozeTime = DateTime.Now.AddMinutes(10).TimeOfDay;
+            var roundedSnooze = new TimeSpan(snoozeTime.Hours, snoozeTime.Minutes, 0);
+
+            var sTask = await _context.StaticTasks.FindAsync(taskId);
+            if (sTask != null) sTask.TimeOfDay = roundedSnooze;
+
+            var dTask = await _context.DynamicTasks.FindAsync(taskId);
+            if (dTask != null) dTask.TimeOfDay = roundedSnooze;
+
+            if (sTask == null && dTask == null) return NotFound();
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
     }
 }
