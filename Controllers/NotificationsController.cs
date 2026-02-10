@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TodoApi.Controllers
 {
-    [Authorize] // Kun logget ind brugere kan abonnere
+    //[Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class NotificationsController : ControllerBase
@@ -19,41 +19,43 @@ namespace TodoApi.Controllers
             _context = context;
         }
 
+        // [Authorize] // Udkommenteret for test
         [HttpPost("subscribe")]
         public async Task<IActionResult> Subscribe([FromBody] PushSubscriptionJSON model)
         {
-            // 1. Find den nuværende brugers ID (fra JWT token) som string
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-            {
-                return Unauthorized();
+            Console.WriteLine("--- SUBSCRIBE METODE RAMT ---");
+
+            if (model == null) {
+                Console.WriteLine("❌ Modtaget model er NULL!");
+                return BadRequest("Data kunne ikke læses");
             }
 
-            // 2. Tjek om denne subscription allerede findes
+            Console.WriteLine($"✅ Modtog endpoint: {model.Endpoint}");
+
+            // Manuel udpakning af UserId for test (hvis Authorize er slået fra)
+            // Hvis du tester uden login, så indsæt et fast ID (f.eks. 1) for at se om det virker
+            int userId = 1;
+
             var existing = await _context.PushSubscriptions
                 .FirstOrDefaultAsync(s => s.Endpoint == model.Endpoint);
 
             if (existing == null)
             {
-                // 3. Opret en ny række - UserId er nu en int
                 var entity = new PushSubscriptionEntity
                 {
-                    UserId = userId, // Nu en int
+                    UserId = userId,
                     Endpoint = model.Endpoint,
-                    P256dh = model.Keys.P256dh,
-                    Auth = model.Keys.Auth,
+                    P256dh = model.Keys?.P256dh ?? "", // Brug ?. for at undgå crash hvis Keys mangler
+                    Auth = model.Keys?.Auth ?? "",
                     CreatedAt = DateTime.UtcNow
                 };
 
                 _context.PushSubscriptions.Add(entity);
-            }
-            else
-            {
-                // Opdater UserId hvis eksisterende endpoint har skiftet bruger
-                existing.UserId = userId;
+                Console.WriteLine("💾 Forsøger at gemme ny subscription...");
             }
 
             await _context.SaveChangesAsync();
+            Console.WriteLine("🎉 Gemt i database!");
             return Ok(new { message = "Subscription gemt succesfuldt!" });
         }
     }

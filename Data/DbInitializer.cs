@@ -27,7 +27,7 @@ namespace TodoApi.Data
             {
                 Username = seedName,
                 PasswordHash = hashedContext,
-                Role = "Admin",
+                Role = "Parent",
                 FamilyId = 1,
                 FamilyName = "Bang",
                 TotalPoints = 0,
