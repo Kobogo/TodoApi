@@ -77,7 +77,11 @@ namespace TodoApi.Services{
             var payload = JsonSerializer.Serialize(new {
                 title = "Tid til opgave! 🏆",
                 body = taskTitle,
-                data = new { taskId = taskId }
+                data = new { taskId = taskId },
+                actions = new[] {
+                new { action = "complete", title = "Godkend ✅" },
+                new { action = "snooze", title = "Snooze 😴" }
+            }
             });
 
             var pushSub = new PushSubscription(sub.Endpoint, sub.P256dh, sub.Auth);
