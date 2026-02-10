@@ -49,7 +49,15 @@ builder.Services.AddAuthentication(x =>
     {
         OnMessageReceived = context =>
         {
+            // 1. Tjek først Cookies
             var accessToken = context.Request.Cookies["AuthToken"];
+
+            // 2. Hvis ingen cookie, tjek URL Query (f.eks. ?token=...)
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                accessToken = context.Request.Query["token"];
+            }
+
             if (!string.IsNullOrEmpty(accessToken))
             {
                 context.Token = accessToken;
