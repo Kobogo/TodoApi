@@ -10,9 +10,8 @@ using TodoApi.Models;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. DATABASE SETUP
+// 1. DATABASE SETUP (Uændret)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(connectionString, npgsqlOptions =>
@@ -22,8 +21,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     });
 });
 
-// 2. JWT AUTHENTICATION SETUP
-// Vi bruger den samme nøgle som i UserController til at validere indkommende tokens
+// 2. JWT AUTHENTICATION SETUP med Cookie Support
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_KEY") ?? "DIN_MEGET_LANGE_HEMMELIGE_NØGLE_HER_PÅ_MINDST_32_TEGN";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
 
@@ -45,20 +43,35 @@ builder.Services.AddAuthentication(x =>
         RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         NameClaimType = System.Security.Claims.ClaimTypes.NameIdentifier
     };
+
+    // --- NYT: Her fortæller vi API'et at det skal kigge i cookies ---
+    x.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Cookies["AuthToken"];
+            if (!string.IsNullOrEmpty(accessToken))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
-// 3. CORS SETUP
+// 3. CORS SETUP - VIGTIGT for cookies!
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyHeader()
+        policy.WithOrigins("https://din-frontend-url.netlify.app", "http://localhost:5173") // Erstat med dine faktiske URLs
+              .AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowAnyOrigin();
+              .AllowCredentials(); // <--- SKAL bruges når man sender cookies/tokens
     });
 });
 
-// 4. CONTROLLERS & JSON SETUP
+// ... resten af dine services (Controllers, Swagger, etc.) er uændret ...
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -71,8 +84,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 5. MIDDLEWARE PIPELINE
-// Swagger skal altid ligge øverst så det er tilgængeligt
+// ... resten af din pipeline (Swagger, Migration, Https, CORS, Auth) ...
 app.UseSwagger();
 app.UseSwaggerUI(c => {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "ToDo API v1");
@@ -85,20 +97,15 @@ using (var scope = app.Services.CreateScope())
     var context = services.GetRequiredService<AppDbContext>();
     var config = services.GetRequiredService<IConfiguration>();
     context.Database.Migrate();
-
-    // Kør vores nye Seed metode
     TodoApi.Data.DbInitializer.Seed(context, config);
 }
 
 app.UseHttpsRedirection();
 
-// CORS skal ligge før Authentication
+// Husk: CORS skal ligge før Authentication
 app.UseCors("AllowAll");
 
-// Authentication tjekker HVEM du er (Token validering)
 app.UseAuthentication();
-
-// Authorization tjekker HVAD du må (Rolle tjek f.eks. "Parent")
 app.UseAuthorization();
 
 app.MapControllers();
