@@ -21,7 +21,8 @@ namespace TodoApi.Controllers
         [HttpGet("stats/{userId}")]
         public async Task<IActionResult> GetStats(int userId)
         {
-            var todayDate = DateTime.Today;
+            // Vi bruger UtcNow.Date for at sikre ensartethed med databasen
+            var todayUtc = DateTime.UtcNow.Date;
 
             // Hent historiske logs
             var allLogs = await _context.TaskLogs
@@ -29,24 +30,29 @@ namespace TodoApi.Controllers
                 .OrderByDescending(l => l.Date)
                 .ToListAsync();
 
-            var historyLogs = allLogs.Where(l => l.Date < todayDate).ToList();
-            var todayLog = allLogs.FirstOrDefault(l => l.Date == todayDate);
+            var historyLogs = allLogs.Where(l => l.Date < todayUtc).ToList();
+            var todayLog = allLogs.FirstOrDefault(l => l.Date == todayUtc);
 
             // 1. Beregn basale point fra historikken
             int totalPointsFromHistory = historyLogs.Sum(l => l.PointsEarned);
 
-            // 2. Tjek dagens status (VIGTIG RETTELSE HER)
-            // Vi tæller dynamiske opgaver for brugeren
+            // 2. Tjek dagens status (Kun opgaver fuldført I DAG tæller)
             int dynamicDone = await _context.DynamicTasks
-                .CountAsync(t => t.UserId == userId && t.IsCompleted);
+                .CountAsync(t => t.UserId == userId &&
+                                 t.IsCompleted &&
+                                 t.LastCompletedDate >= todayUtc);
 
-            // Vi tæller statiske opgaver (både brugerens egne og de fælles opgaver med UserId == null)
             int staticDone = await _context.StaticTasks
-                .CountAsync(t => (t.UserId == userId || t.UserId == null) && t.IsCompleted);
+                .CountAsync(t => (t.UserId == userId || t.UserId == null) &&
+                                 t.IsCompleted &&
+                                 t.LastCompletedDate >= todayUtc);
 
             int activeDoneToday = dynamicDone + staticDone;
 
-            // Brug loggen hvis den er højere (pga. slettede opgaver)
+            // ANTI-CHEAT / ANTI-DROP:
+            // Vi bruger det højeste tal mellem loggen (gemte point) og den aktive liste.
+            // Hvis man sletter en opgave eller fjerner et flueben, vil loggen 'vinde',
+            // så barnets TodayCompleted ikke falder.
             int effectiveDoneToday = todayLog != null ? Math.Max(todayLog.TasksCompleted, activeDoneToday) : activeDoneToday;
 
             int dailyGoal = 3;
