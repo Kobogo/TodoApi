@@ -17,6 +17,7 @@ namespace TodoApi.Data
         public DbSet<StaticTask> StaticTasks { get; set; } = null!;
         public DbSet<DynamicTask> DynamicTasks { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
+        public DbSet<TaskLog> TaskLogs { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -162,6 +163,24 @@ namespace TodoApi.Data
                     CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
                 }
             );
+
+            // --- TASKLOG MAPPING ---
+            modelBuilder.Entity<TaskLog>(entity =>
+            {
+                entity.ToTable("taskLogs");
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.UserId).HasColumnName("userId");
+                entity.Property(e => e.Date).HasColumnName("date");
+                entity.Property(e => e.TasksCompleted).HasColumnName("tasksCompleted");
+                entity.Property(e => e.DailyGoal).HasColumnName("dailyGoal");
+                entity.Property(e => e.PointsEarned).HasColumnName("pointsEarned");
+
+                // Relation: TaskLog -> User
+                entity.HasOne<User>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

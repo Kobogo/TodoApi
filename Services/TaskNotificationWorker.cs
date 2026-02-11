@@ -39,7 +39,7 @@ namespace TodoApi.Services{
                     // Hent opgaver der matcher den danske tid
                     var staticTasks = db.StaticTasks
                         .Where(t => t.TimeOfDay == nuTimeSpan && !t.IsCompleted && t.UserId != null)
-                        .Select(t => new { t.Id, UserId = t.UserId.Value, t.Title })
+                        .Select(t => new { t.Id, UserId = t.UserId ?? 0, t.Title })
                         .ToList();
 
                     var dynamicTasks = db.DynamicTasks
