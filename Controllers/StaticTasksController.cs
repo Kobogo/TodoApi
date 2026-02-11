@@ -62,14 +62,48 @@ namespace TodoApi.Controllers
         [HttpPatch("{id}/completion")]
         public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
         {
-            var task = await _context.StaticTasks.FindAsync(id);
+            var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            task.IsCompleted = isCompleted;
-            if (isCompleted) task.LastCompletedDate = DateTime.UtcNow;
+            // Hvis den allerede VAR fuldført, og man prøver at sætte den til true igen, gør vi intet
+            if (isCompleted && !task.IsCompleted)
+            {
+                task.IsCompleted = true;
+                task.LastCompletedDate = DateTime.UtcNow;
+
+                // GEM POINT I LOGGEN MED DET SAMME - de kan aldrig fjernes herfra
+                await EnsureTaskLogged(task.UserId, 1, task.Points);
+            }
+            else if (!isCompleted)
+            {
+                task.IsCompleted = false; // Vi fjerner fluebenet i listen, men vi trækker IKKE point fra loggen
+            }
 
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        // Genbrug EnsureTaskLogged metoden (husk at tilføje points parameter)
+        private async Task EnsureTaskLogged(int userId, int count, int points)
+        {
+            var today = DateTime.UtcNow.Date;
+            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
+
+            if (log == null)
+            {
+                _context.TaskLogs.Add(new TaskLog {
+                    UserId = userId,
+                    Date = today,
+                    TasksCompleted = count,
+                    DailyGoal = 3,
+                    PointsEarned = points
+                });
+            }
+            else
+            {
+                log.TasksCompleted += count;
+                log.PointsEarned += points;
+            }
         }
 
         [HttpDelete("{id}")]

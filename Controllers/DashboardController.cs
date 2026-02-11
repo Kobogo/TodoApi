@@ -21,10 +21,9 @@ namespace TodoApi.Controllers
         [HttpGet("stats/{userId}")]
         public async Task<IActionResult> GetStats(int userId)
         {
-            // Vi bruger UtcNow.Date for at sikre ensartethed med databasen
             var todayUtc = DateTime.UtcNow.Date;
 
-            // Hent historiske logs
+            // Hent alle logs for at beregne historik og streak
             var allLogs = await _context.TaskLogs
                 .Where(l => l.UserId == userId)
                 .OrderByDescending(l => l.Date)
@@ -33,32 +32,19 @@ namespace TodoApi.Controllers
             var historyLogs = allLogs.Where(l => l.Date < todayUtc).ToList();
             var todayLog = allLogs.FirstOrDefault(l => l.Date == todayUtc);
 
-            // 1. Beregn basale point fra historikken
+            // 1. Samlet historisk score (før i dag)
             int totalPointsFromHistory = historyLogs.Sum(l => l.PointsEarned);
 
-            // 2. Tjek dagens status (Kun opgaver fuldført I DAG tæller)
-            int dynamicDone = await _context.DynamicTasks
-                .CountAsync(t => t.UserId == userId &&
-                                 t.IsCompleted &&
-                                 t.LastCompletedDate >= todayUtc);
-
-            int staticDone = await _context.StaticTasks
-                .CountAsync(t => (t.UserId == userId || t.UserId == null) &&
-                                 t.IsCompleted &&
-                                 t.LastCompletedDate >= todayUtc);
-
-            int activeDoneToday = dynamicDone + staticDone;
-
-            // ANTI-CHEAT / ANTI-DROP:
-            // Vi bruger det højeste tal mellem loggen (gemte point) og den aktive liste.
-            // Hvis man sletter en opgave eller fjerner et flueben, vil loggen 'vinde',
-            // så barnets TodayCompleted ikke falder.
-            int effectiveDoneToday = todayLog != null ? Math.Max(todayLog.TasksCompleted, activeDoneToday) : activeDoneToday;
+            // 2. Dagens præstation
+            // Vi bruger nu loggen som "source of truth".
+            // Hvis barnet har udført noget og derefter fjernet fluebenet eller slettet opgaven,
+            // så vil loggen stadig have tallene gemt.
+            int effectiveDoneToday = todayLog?.TasksCompleted ?? 0;
+            int pointsToday = todayLog?.PointsEarned ?? 0;
 
             int dailyGoal = 3;
-            int pointsToday = effectiveDoneToday * 10;
 
-            // 3. Beregn Streak
+            // 3. Streak beregning
             int streak = 0;
             if (effectiveDoneToday >= dailyGoal)
             {
@@ -71,7 +57,7 @@ namespace TodoApi.Controllers
                 else break;
             }
 
-            // 4. Samlet point
+            // 4. Samlet total (Historik + Dagens "låste" point)
             int liveTotalPoints = totalPointsFromHistory + pointsToday;
 
             return Ok(new
