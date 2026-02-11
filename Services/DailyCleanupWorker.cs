@@ -23,6 +23,8 @@ namespace TodoApi.Services
             {
                 var dkTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
                 var nu = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, dkTimeZone);
+
+                // Vi vil køre præcis kl. 00:00:01 hver nat
                 var næsteKørsel = nu.Date.AddDays(1);
                 var ventetid = næsteKørsel - nu;
 
@@ -50,40 +52,50 @@ namespace TodoApi.Services
 
             // 1. Find alle unikke brugere der har opgaver
             var userIds = await context.DynamicTasks.Select(t => t.UserId)
-                .Union(context.StaticTasks.Where(t => t.UserId != null).Select(t => t.UserId!.Value))
+                .Union(context.StaticTasks.Where(t => t.UserId != null).Select(t => (int)t.UserId!))
                 .Distinct()
                 .ToListAsync();
 
-            var igår = DateTime.Today.AddDays(-1);
+            // Da vi kører lige efter midnat, logger vi for "i går"
+            var dkTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
+            var igår = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, dkTimeZone).AddDays(-1).Date;
 
             foreach (var userId in userIds)
             {
-                // Tæl gennemførte opgaver for dagen der gik
                 int dynamicDone = await context.DynamicTasks.CountAsync(t => t.UserId == userId && t.IsCompleted);
                 int staticDone = await context.StaticTasks.CountAsync(t => t.UserId == userId && t.IsCompleted);
                 int totalDone = dynamicDone + staticDone;
 
-                // Opret logpost
+                // Gem dagens resultat permanent i historikken
                 context.TaskLogs.Add(new TaskLog
                 {
                     UserId = userId,
                     Date = igår,
                     TasksCompleted = totalDone,
-                    DailyGoal = 3, // Standardmål
-                    PointsEarned = totalDone * 10 // 10 point pr. opgave
+                    DailyGoal = 3,
+                    PointsEarned = totalDone * 10
                 });
 
                 _logger.LogInformation("Loggede {Count} opgaver for bruger {UserId}", totalDone, userId);
             }
 
-            // 2. Nulstil statiske opgaver
+            // 2. Nulstil statiske opgaver (Alle faste rutiner skal gøres igen i morgen)
             var staticTasks = await context.StaticTasks.Where(t => t.IsCompleted).ToListAsync();
             foreach (var st in staticTasks) st.IsCompleted = false;
 
             // 3. Nulstil dynamiske gentagende opgaver
-            var allDynamic = await context.DynamicTasks.Where(t => t.IsCompleted && t.TimeOfDay != null).ToListAsync();
-            var repeatingTasks = allDynamic.Where(t => t.RepeatDays != null && t.RepeatDays.Count > 0).ToList();
-            foreach (var dt in repeatingTasks) dt.IsCompleted = false;
+            var repeatingTasks = await context.DynamicTasks
+                .Where(t => t.IsCompleted && t.RepeatDays != null)
+                .ToListAsync();
+
+            // Vi tjekker her kun for dem der faktisk har dage i listen
+            foreach (var dt in repeatingTasks)
+            {
+                if (dt.RepeatDays!.Count > 0)
+                {
+                    dt.IsCompleted = false;
+                }
+            }
 
             await context.SaveChangesAsync();
             _logger.LogInformation("Midnats-nulstilling gennemført.");
