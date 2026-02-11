@@ -87,6 +87,7 @@ builder.Services.AddControllers()
     });
 
 builder.Services.AddHostedService<TaskNotificationWorker>();
+builder.Services.AddHostedService<DailyCleanupWorker>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
