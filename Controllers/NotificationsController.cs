@@ -83,24 +83,38 @@ namespace TodoApi.Controllers
         }
 
         [HttpPatch("snooze/{taskId}")]
+        [Authorize]
         public async Task<IActionResult> SnoozeTask(int taskId)
         {
-            // Vi rykker tiden 10 minutter frem
-            var dkTime = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-             TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"));
-            var snoozeTime = dkTime.AddMinutes(10).TimeOfDay;
-            var roundedSnooze = new TimeSpan(snoozeTime.Hours, snoozeTime.Minutes, 0);
+            // Hent nuværende tid i DK
+            var dkTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
+            var nu = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, dkTimeZone);
 
+            // Tilføj 10 minutter
+            var nyTid = nu.AddMinutes(10);
+            var roundedSnooze = new TimeSpan(nyTid.Hour, nyTid.Minute, 0);
+
+            // Find opgaverne
             var sTask = await _context.StaticTasks.FindAsync(taskId);
-            if (sTask != null) sTask.TimeOfDay = roundedSnooze;
-
             var dTask = await _context.DynamicTasks.FindAsync(taskId);
+
+            if (sTask == null && dTask == null)
+            {
+                return NotFound(new { message = "Opgave ikke fundet" });
+            }
+
+            if (sTask != null) sTask.TimeOfDay = roundedSnooze;
             if (dTask != null) dTask.TimeOfDay = roundedSnooze;
 
-            if (sTask == null && dTask == null) return NotFound();
-
-            await _context.SaveChangesAsync();
-            return Ok();
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new { message = "Snoozet til " + roundedSnooze.ToString(@"hh\:mm") });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Kunne ikke gemme snooze", error = ex.Message });
+            }
         }
     }
 }
