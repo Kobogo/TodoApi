@@ -220,6 +220,23 @@ namespace TodoApi.Controllers
             return Ok(new { message = "Rolle opdateret" });
         }
 
+        [HttpPatch("{id}/goal")]
+        [Authorize(Roles = "Parent")]
+        public async Task<IActionResult> UpdateDailyGoal(int id, [FromBody] int newGoal)
+        {
+            var userToUpdate = await _context.Users.FindAsync(id);
+            if (userToUpdate == null) return NotFound("Bruger ikke fundet");
+
+            // Sikkerhed: Tjek at forælderen kun ændrer mål for medlemmer af egen familie
+            var familyIdClaim = User.FindFirst("FamilyId")?.Value;
+            if (userToUpdate.FamilyId.ToString() != familyIdClaim) return Forbid();
+
+            userToUpdate.DailyGoal = newGoal;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Daglige mål opdateret", dailyGoal = userToUpdate.DailyGoal });
+        }
+
         [HttpDelete("{id}")]
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> DeleteUser(int id)
