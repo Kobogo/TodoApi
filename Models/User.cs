@@ -26,4 +26,7 @@ public class User
 
     [Column("familyName")]
     public string? FamilyName { get; set; }
+
+    [Column("dailyGoal")]
+    public int DailyGoal { get; set; } = 3;
 }

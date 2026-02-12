@@ -23,6 +23,11 @@ namespace TodoApi.Controllers
         {
             var todayUtc = DateTime.UtcNow.Date;
 
+            // Hent brugeren for at få det personlige DailyGoal
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound("Bruger ikke fundet");
+
+            // Hent alle logs for brugeren
             var allLogs = await _context.TaskLogs
                 .Where(l => l.UserId == userId)
                 .OrderByDescending(l => l.Date)
@@ -32,14 +37,21 @@ namespace TodoApi.Controllers
             var todayLog = allLogs.FirstOrDefault(l => l.Date == todayUtc);
 
             int effectiveDoneToday = todayLog?.TasksCompleted ?? 0;
-            int pointsToday = todayLog?.PointsEarned ?? 0;
-            int dailyGoal = 3;
 
-            // STREAK (samme logik som før)
+            // Brug brugerens personlige mål, ellers standard 3
+            int currentDailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3;
+
+            // 1. STREAK BEREGNING
             int streak = 0;
-            if (effectiveDoneToday >= dailyGoal) streak++;
 
-            // Beregn streak bagud fra i går
+            // Tjek i dag mod det aktuelle mål
+            if (effectiveDoneToday >= currentDailyGoal)
+            {
+                streak++;
+            }
+
+            // Tjek historikken bagud (her bruger vi loggens historiske mål,
+            // så en mål-ændring i dag ikke ødelægger gamle streaks)
             var historyForStreak = allLogs.Where(l => l.Date < todayUtc).ToList();
             foreach (var log in historyForStreak)
             {
@@ -47,7 +59,7 @@ namespace TodoApi.Controllers
                 else break;
             }
 
-            // TOTAL SCORE
+            // 2. TOTAL SCORE (Samlet sum af alle optjente point i loggen)
             int totalPoints = allLogs.Sum(l => l.PointsEarned);
 
             return Ok(new
@@ -55,8 +67,8 @@ namespace TodoApi.Controllers
                 Streak = streak,
                 TotalPoints = totalPoints,
                 TodayCompleted = effectiveDoneToday,
-                DailyGoal = dailyGoal,
-                // RETTELSE: Tag de 7 nyeste logs INKLUSIV i dag
+                DailyGoal = currentDailyGoal,
+                // Indeholder de 7 nyeste dage inklusiv i dag til grafen
                 RecentLogs = allLogs.Take(7)
             });
         }
