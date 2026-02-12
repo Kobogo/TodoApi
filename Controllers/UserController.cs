@@ -140,11 +140,14 @@ namespace TodoApi.Controllers
         {
             try
             {
-                var userIdClaim = User.FindFirst("UserId")?.Value;
-                if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized(new { message = "Kunne ikke finde bruger-ID i token" });
 
                 var parent = await _context.Users.FindAsync(int.Parse(userIdClaim));
-                if (parent == null) return NotFound("Forælder ikke fundet");
+                if (parent == null)
+                    return NotFound("Forælder ikke fundet i databasen");
 
                 if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                     return BadRequest(new { message = "Brugernavnet er optaget" });
@@ -167,7 +170,7 @@ namespace TodoApi.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                return StatusCode(500, new { message = "Fejl ved oprettelse", error = ex.Message });
             }
         }
 
