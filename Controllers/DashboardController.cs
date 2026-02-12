@@ -23,50 +23,41 @@ namespace TodoApi.Controllers
         {
             var todayUtc = DateTime.UtcNow.Date;
 
-            // Hent alle logs for at beregne historik og streak
             var allLogs = await _context.TaskLogs
                 .Where(l => l.UserId == userId)
                 .OrderByDescending(l => l.Date)
                 .ToListAsync();
 
-            var historyLogs = allLogs.Where(l => l.Date < todayUtc).ToList();
+            // Find dagens tal direkte fra loggen
             var todayLog = allLogs.FirstOrDefault(l => l.Date == todayUtc);
 
-            // 1. Samlet historisk score (før i dag)
-            int totalPointsFromHistory = historyLogs.Sum(l => l.PointsEarned);
-
-            // 2. Dagens præstation
-            // Vi bruger nu loggen som "source of truth".
-            // Hvis barnet har udført noget og derefter fjernet fluebenet eller slettet opgaven,
-            // så vil loggen stadig have tallene gemt.
             int effectiveDoneToday = todayLog?.TasksCompleted ?? 0;
             int pointsToday = todayLog?.PointsEarned ?? 0;
-
             int dailyGoal = 3;
 
-            // 3. Streak beregning
+            // STREAK (samme logik som før)
             int streak = 0;
-            if (effectiveDoneToday >= dailyGoal)
-            {
-                streak++;
-            }
+            if (effectiveDoneToday >= dailyGoal) streak++;
 
-            foreach (var log in historyLogs)
+            // Beregn streak bagud fra i går
+            var historyForStreak = allLogs.Where(l => l.Date < todayUtc).ToList();
+            foreach (var log in historyForStreak)
             {
                 if (log.TasksCompleted >= log.DailyGoal) streak++;
                 else break;
             }
 
-            // 4. Samlet total (Historik + Dagens "låste" point)
-            int liveTotalPoints = totalPointsFromHistory + pointsToday;
+            // TOTAL SCORE
+            int totalPoints = allLogs.Sum(l => l.PointsEarned);
 
             return Ok(new
             {
                 Streak = streak,
-                TotalPoints = liveTotalPoints,
+                TotalPoints = totalPoints,
                 TodayCompleted = effectiveDoneToday,
                 DailyGoal = dailyGoal,
-                RecentLogs = historyLogs.Take(7)
+                // RETTELSE: Tag de 7 nyeste logs INKLUSIV i dag
+                RecentLogs = allLogs.Take(7)
             });
         }
     }

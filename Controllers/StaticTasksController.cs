@@ -131,7 +131,7 @@ namespace TodoApi.Controllers
                 log.TasksCompleted += count;
                 log.PointsEarned += points;
             }
-            // Bemærk: SaveChanges kaldes typisk i den kaldende metode
+            await _context.SaveChangesAsync();
         }
 
         private bool StaticTaskExists(int id)
