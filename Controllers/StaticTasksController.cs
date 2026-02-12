@@ -48,9 +48,17 @@ namespace TodoApi.Controllers
         public async Task<IActionResult> UpdateStaticTask(int id, [FromBody] StaticTask updatedTask)
         {
             if (id != updatedTask.Id) return BadRequest("ID mismatch");
+
+            // Tjekker om opgaven findes uden at tracke den, så vi kan overskrive den
+            var exists = await _context.StaticTasks.AnyAsync(t => t.Id == id);
+            if (!exists) return NotFound();
+
             _context.Entry(updatedTask).State = EntityState.Modified;
 
-            try { await _context.SaveChangesAsync(); }
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
             catch (DbUpdateConcurrencyException)
             {
                 if (!StaticTaskExists(id)) return NotFound();
@@ -62,28 +70,47 @@ namespace TodoApi.Controllers
         [HttpPatch("{id}/completion")]
         public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
         {
-            var task = await _context.DynamicTasks.FindAsync(id);
+            // RETTET: Brugte før DynamicTasks ved en fejl
+            var task = await _context.StaticTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            // Hvis den allerede VAR fuldført, og man prøver at sætte den til true igen, gør vi intet
             if (isCompleted && !task.IsCompleted)
             {
                 task.IsCompleted = true;
                 task.LastCompletedDate = DateTime.UtcNow;
 
-                // GEM POINT I LOGGEN MED DET SAMME - de kan aldrig fjernes herfra
-                await EnsureTaskLogged(task.UserId, 1, task.Points);
+                if (task.UserId.HasValue)
+                {
+                    await EnsureTaskLogged(task.UserId.Value, 1, task.Points);
+                }
             }
             else if (!isCompleted)
             {
-                task.IsCompleted = false; // Vi fjerner fluebenet i listen, men vi trækker IKKE point fra loggen
+                task.IsCompleted = false;
             }
 
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
-        // Genbrug EnsureTaskLogged metoden (husk at tilføje points parameter)
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteStaticTask(int id)
+        {
+            var task = await _context.StaticTasks.FindAsync(id);
+            if (task == null) return NotFound();
+
+            if (task.IsCompleted && task.UserId.HasValue)
+            {
+                await EnsureTaskLogged(task.UserId.Value, 1, task.Points);
+            }
+
+            _context.StaticTasks.Remove(task);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // Hjælpemetode til logging
         private async Task EnsureTaskLogged(int userId, int count, int points)
         {
             var today = DateTime.UtcNow.Date;
@@ -104,49 +131,7 @@ namespace TodoApi.Controllers
                 log.TasksCompleted += count;
                 log.PointsEarned += points;
             }
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteStaticTask(int id)
-        {
-            var task = await _context.StaticTasks.FindAsync(id);
-            if (task == null) return NotFound();
-
-            // NYT: Hvis en færdig rutine slettes, log den som fuldført for i dag
-            // Da StaticTask.UserId kan være null (globale opgaver), bruger vi en fallback eller skipper log
-            if (task.IsCompleted && task.UserId.HasValue)
-            {
-                await EnsureTaskLogged(task.UserId.Value, 1);
-            }
-
-            _context.StaticTasks.Remove(task);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private async Task EnsureTaskLogged(int userId, int count)
-        {
-            var today = DateTime.Today;
-            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
-
-            if (log == null)
-            {
-                _context.TaskLogs.Add(new TaskLog
-                {
-                    UserId = userId,
-                    Date = today,
-                    TasksCompleted = count,
-                    DailyGoal = 3,
-                    PointsEarned = count * 10
-                });
-            }
-            else
-            {
-                log.TasksCompleted += count;
-                log.PointsEarned += (count * 10);
-            }
-            await _context.SaveChangesAsync();
+            // Bemærk: SaveChanges kaldes typisk i den kaldende metode
         }
 
         private bool StaticTaskExists(int id)
