@@ -41,4 +41,7 @@ public class User
 
     [Column("isTimerRunning")]
     public bool IsTimerRunning { get; set; } = false;
+
+    [Column("bonusMinutesEarnedToday")]
+    public int BonusMinutesEarnedToday { get; set; } = 0;
 }
