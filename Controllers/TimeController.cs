@@ -62,7 +62,7 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            var today = DateTime.Now;
+            var today = DateTime.UtcNow;
 
             // Tjek om vi er gået ind i et nyt døgn
             if (user.LastTimerUpdate.Date < today.Date)
