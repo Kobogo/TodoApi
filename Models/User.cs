@@ -29,4 +29,16 @@ public class User
 
     [Column("dailyGoal")]
     public int DailyGoal { get; set; } = 3;
+
+    [Column("minutesLeftToday")]
+    public int MinutesLeftToday { get; set; } = 240; // Standard 4 timer
+
+    [Column("saturdayBonusPot")]
+    public int SaturdayBonusPot { get; set; } = 0; // Her opspares overskydende tid
+
+    [Column("lastTimerUpdate")]
+    public DateTime LastTimerUpdate { get; set; } = DateTime.Now;
+
+    [Column("isTimerRunning")]
+    public bool IsTimerRunning { get; set; } = false;
 }

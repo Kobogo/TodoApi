@@ -67,45 +67,21 @@ namespace TodoApi.Controllers
             var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            // Hvis den allerede VAR fuldført, og man prøver at sætte den til true igen, gør vi intet
             if (isCompleted && !task.IsCompleted)
             {
                 task.IsCompleted = true;
                 task.LastCompletedDate = DateTime.UtcNow;
 
-                // GEM POINT I LOGGEN MED DET SAMME - de kan aldrig fjernes herfra
-                await EnsureTaskLogged(task.UserId, 1, task.Points);
+                // Bruger opgavens specifikke bonustid
+                await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.TimeBonusMinutes);
             }
             else if (!isCompleted)
             {
-                task.IsCompleted = false; // Vi fjerner fluebenet i listen, men vi trækker IKKE point fra loggen
+                task.IsCompleted = false;
             }
 
             await _context.SaveChangesAsync();
             return NoContent();
-        }
-
-        // Genbrug EnsureTaskLogged metoden (husk at tilføje points parameter)
-        private async Task EnsureTaskLogged(int userId, int count, int points)
-        {
-            var today = DateTime.UtcNow.Date;
-            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
-
-            if (log == null)
-            {
-                _context.TaskLogs.Add(new TaskLog {
-                    UserId = userId,
-                    Date = today,
-                    TasksCompleted = count,
-                    DailyGoal = 3,
-                    PointsEarned = points
-                });
-            }
-            else
-            {
-                log.TasksCompleted += count;
-                log.PointsEarned += points;
-            }
         }
 
         [HttpDelete("{id}")]
@@ -114,10 +90,9 @@ namespace TodoApi.Controllers
             var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            // NYT: Hvis opgaven slettes, mens den er færdig, skal vi gemme indsatsen i loggen
             if (task.IsCompleted)
             {
-                await EnsureTaskLogged(task.UserId, 1);
+                await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points > 0 ? task.Points : 10, task.TimeBonusMinutes);
             }
 
             _context.DynamicTasks.Remove(task);
@@ -126,27 +101,31 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        // Hjælpefunktion til at sikre at point og tælling gemmes ved sletning
-        private async Task EnsureTaskLogged(int userId, int count)
+        private async Task EnsureTaskLoggedAndAddBonus(int userId, int count, int points, int bonusMinutes)
         {
-            var today = DateTime.Today;
+            var today = DateTime.UtcNow.Date;
             var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
+            var user = await _context.Users.FindAsync(userId);
+
+            if (user != null && user.Role == "Child")
+            {
+                user.MinutesLeftToday += bonusMinutes;
+            }
 
             if (log == null)
             {
-                _context.TaskLogs.Add(new TaskLog
-                {
+                _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
                     Date = today,
                     TasksCompleted = count,
-                    DailyGoal = 3,
-                    PointsEarned = count * 10
+                    DailyGoal = user?.DailyGoal ?? 3,
+                    PointsEarned = points
                 });
             }
             else
             {
                 log.TasksCompleted += count;
-                log.PointsEarned += (count * 10);
+                log.PointsEarned += points;
             }
         }
 

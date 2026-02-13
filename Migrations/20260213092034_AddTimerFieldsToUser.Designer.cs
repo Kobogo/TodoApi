@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using TodoApi.Data;
@@ -11,9 +12,11 @@ using TodoApi.Data;
 namespace TodoApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260213092034_AddTimerFieldsToUser")]
+    partial class AddTimerFieldsToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,9 +53,6 @@ namespace TodoApi.Migrations
                     b.Property<string>("RepeatDays")
                         .HasColumnType("text")
                         .HasColumnName("repeatDays");
-
-                    b.Property<int>("TimeBonusMinutes")
-                        .HasColumnType("integer");
 
                     b.Property<TimeSpan?>("TimeOfDay")
                         .HasColumnType("interval")
@@ -172,9 +172,6 @@ namespace TodoApi.Migrations
                         .HasColumnType("text")
                         .HasColumnName("repeatDays");
 
-                    b.Property<int>("TimeBonusMinutes")
-                        .HasColumnType("integer");
-
                     b.Property<TimeSpan?>("TimeOfDay")
                         .HasColumnType("interval")
                         .HasColumnName("timeOfDay");
@@ -200,7 +197,6 @@ namespace TodoApi.Migrations
                             Id = 1,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Tømme opvaskemaskine & flyde den igen"
                         },
                         new
@@ -208,7 +204,6 @@ namespace TodoApi.Migrations
                             Id = 2,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Tørre støv af"
                         },
                         new
@@ -216,7 +211,6 @@ namespace TodoApi.Migrations
                             Id = 3,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Dække bord + tørre bord af"
                         },
                         new
@@ -224,7 +218,6 @@ namespace TodoApi.Migrations
                             Id = 4,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Støvsuge hele huset"
                         },
                         new
@@ -232,7 +225,6 @@ namespace TodoApi.Migrations
                             Id = 5,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Vaske gulv"
                         },
                         new
@@ -240,7 +232,6 @@ namespace TodoApi.Migrations
                             Id = 6,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Hænge vasketøj op med en voksen"
                         },
                         new
@@ -248,7 +239,6 @@ namespace TodoApi.Migrations
                             Id = 7,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Skylle af efter aftensmaden"
                         },
                         new
@@ -256,7 +246,6 @@ namespace TodoApi.Migrations
                             Id = 8,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Pille tøj ned af tørrestativet"
                         },
                         new
@@ -264,7 +253,6 @@ namespace TodoApi.Migrations
                             Id = 9,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Lægge tøj sammen + lægge tøj på plads med en voksen"
                         },
                         new
@@ -272,7 +260,6 @@ namespace TodoApi.Migrations
                             Id = 10,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Tømme skraldespande"
                         },
                         new
@@ -280,7 +267,6 @@ namespace TodoApi.Migrations
                             Id = 11,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Ordne badeværelser med en voksen"
                         },
                         new
@@ -288,7 +274,6 @@ namespace TodoApi.Migrations
                             Id = 12,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Slå græs"
                         },
                         new
@@ -296,7 +281,6 @@ namespace TodoApi.Migrations
                             Id = 13,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Fejrne ukrudt (min. 1 spand)"
                         },
                         new
@@ -304,7 +288,6 @@ namespace TodoApi.Migrations
                             Id = 14,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Være med til at lave aftensmad"
                         },
                         new
@@ -312,7 +295,6 @@ namespace TodoApi.Migrations
                             Id = 15,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Fylde op i køleskab med sodavand"
                         },
                         new
@@ -320,7 +302,6 @@ namespace TodoApi.Migrations
                             Id = 16,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Give kattene mad"
                         },
                         new
@@ -328,7 +309,6 @@ namespace TodoApi.Migrations
                             Id = 17,
                             IsCompleted = false,
                             Points = 2,
-                            TimeBonusMinutes = 15,
                             Title = "Rede senge (Alle)"
                         });
                 });

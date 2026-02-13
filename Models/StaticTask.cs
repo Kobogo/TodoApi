@@ -17,5 +17,6 @@ namespace TodoApi.Models
         public DateTime? LastShownDate { get; set; }
         public List<DayOfWeek>? RepeatDays { get; set; }
         public int Points { get; set; } = 2;
+        public int TimeBonusMinutes { get; set; } = 15;
     }
 }
