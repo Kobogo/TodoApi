@@ -74,7 +74,11 @@ namespace TodoApi.Controllers
                     Streak = streak,
                     TotalPoints = totalPoints,
                     TodayCompleted = effectiveDoneToday,
-                    DailyGoal = currentDailyGoal, // Returnerer det opdaterede mål
+                    DailyGoal = currentDailyGoal,
+                    MinutesLeftToday = user.MinutesLeftToday,
+                    BonusMinutesEarnedToday = user.BonusMinutesEarnedToday,
+                    SaturdayBonusPot = user.SaturdayBonusPot,
+                    IsTimerRunning = user.IsTimerRunning,
                     RecentLogs = allLogs.Take(7).Select(l => new {
                         l.Date,
                         l.TasksCompleted,
