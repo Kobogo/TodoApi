@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using TodoApi.Data;
 using TodoApi.Models;
 using Microsoft.AspNetCore.Authorization;
-using System.Security.Claims;
 
 namespace TodoApi.Controllers
 {
@@ -14,19 +13,13 @@ namespace TodoApi.Controllers
     {
         private readonly AppDbContext _context;
 
-        public TasksController(AppDbContext context)
-        {
-            _context = context;
-        }
+        public TasksController(AppDbContext context) { _context = context; }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<DynamicTask>>> GetDynamicTasks([FromQuery] int? userId)
         {
             var query = _context.DynamicTasks.AsQueryable();
-            if (userId.HasValue)
-            {
-                query = query.Where(t => t.UserId == userId.Value);
-            }
+            if (userId.HasValue) query = query.Where(t => t.UserId == userId.Value);
             return await query.ToListAsync();
         }
 
@@ -51,10 +44,8 @@ namespace TodoApi.Controllers
         {
             if (id != task.Id) return BadRequest();
             _context.Entry(task).State = EntityState.Modified;
-
             try { await _context.SaveChangesAsync(); }
-            catch (DbUpdateConcurrencyException)
-            {
+            catch (DbUpdateConcurrencyException) {
                 if (!DynamicTaskExists(id)) return NotFound();
                 else throw;
             }
@@ -67,16 +58,12 @@ namespace TodoApi.Controllers
             var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            if (isCompleted && !task.IsCompleted)
-            {
+            if (isCompleted && !task.IsCompleted) {
                 task.IsCompleted = true;
                 task.LastCompletedDate = DateTime.UtcNow;
-
-                // Bruger opgavens specifikke bonustid
                 await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.TimeBonusMinutes);
             }
-            else if (!isCompleted)
-            {
+            else if (!isCompleted) {
                 task.IsCompleted = false;
             }
 
@@ -90,14 +77,9 @@ namespace TodoApi.Controllers
             var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            if (task.IsCompleted)
-            {
-                await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points > 0 ? task.Points : 10, task.TimeBonusMinutes);
-            }
-
+            // Rettelse: Vi fjerner bonus-logikken herfra, så man ikke "snyder" sig til minutter ved sletning
             _context.DynamicTasks.Remove(task);
             await _context.SaveChangesAsync();
-
             return NoContent();
         }
 
@@ -107,13 +89,11 @@ namespace TodoApi.Controllers
             var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
             var user = await _context.Users.FindAsync(userId);
 
-            if (user != null && user.Role == "Child")
-            {
+            if (user != null && user.Role == "Child") {
                 user.MinutesLeftToday += bonusMinutes;
             }
 
-            if (log == null)
-            {
+            if (log == null) {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
                     Date = today,
@@ -121,17 +101,12 @@ namespace TodoApi.Controllers
                     DailyGoal = user?.DailyGoal ?? 3,
                     PointsEarned = points
                 });
-            }
-            else
-            {
+            } else {
                 log.TasksCompleted += count;
                 log.PointsEarned += points;
             }
         }
 
-        private bool DynamicTaskExists(int id)
-        {
-            return _context.DynamicTasks.Any(e => e.Id == id);
-        }
+        private bool DynamicTaskExists(int id) => _context.DynamicTasks.Any(e => e.Id == id);
     }
 }

@@ -13,26 +13,15 @@ namespace TodoApi.Controllers
     {
         private readonly AppDbContext _context;
 
-        public StaticTasksController(AppDbContext context)
-        {
-            _context = context;
-        }
+        public StaticTasksController(AppDbContext context) { _context = context; }
 
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int? userId)
         {
             var query = _context.StaticTasks.AsQueryable();
             List<StaticTask> tasks;
-
-            if (userId.HasValue)
-            {
-                tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
-            }
-            else
-            {
-                tasks = await query.Where(t => t.UserId == null).ToListAsync();
-            }
-
+            if (userId.HasValue) tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
+            else tasks = await query.Where(t => t.UserId == null).ToListAsync();
             return Ok(tasks);
         }
 
@@ -48,15 +37,9 @@ namespace TodoApi.Controllers
         public async Task<IActionResult> UpdateStaticTask(int id, [FromBody] StaticTask updatedTask)
         {
             if (id != updatedTask.Id) return BadRequest("ID mismatch");
-
-            var exists = await _context.StaticTasks.AnyAsync(t => t.Id == id);
-            if (!exists) return NotFound();
-
             _context.Entry(updatedTask).State = EntityState.Modified;
-
             try { await _context.SaveChangesAsync(); }
-            catch (DbUpdateConcurrencyException)
-            {
+            catch (DbUpdateConcurrencyException) {
                 if (!StaticTaskExists(id)) return NotFound();
                 else throw;
             }
@@ -69,18 +52,14 @@ namespace TodoApi.Controllers
             var task = await _context.StaticTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            if (isCompleted && !task.IsCompleted)
-            {
+            if (isCompleted && !task.IsCompleted) {
                 task.IsCompleted = true;
                 task.LastCompletedDate = DateTime.UtcNow;
-
-                if (task.UserId.HasValue)
-                {
+                if (task.UserId.HasValue) {
                     await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.TimeBonusMinutes);
                 }
             }
-            else if (!isCompleted)
-            {
+            else if (!isCompleted) {
                 task.IsCompleted = false;
             }
 
@@ -94,11 +73,7 @@ namespace TodoApi.Controllers
             var task = await _context.StaticTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            if (task.IsCompleted && task.UserId.HasValue)
-            {
-                await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.TimeBonusMinutes);
-            }
-
+            // Rettelse: Bonus fjernet fra sletning
             _context.StaticTasks.Remove(task);
             await _context.SaveChangesAsync();
             return NoContent();
@@ -110,13 +85,11 @@ namespace TodoApi.Controllers
             var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
             var user = await _context.Users.FindAsync(userId);
 
-            if (user != null && user.Role == "Child")
-            {
+            if (user != null && user.Role == "Child") {
                 user.MinutesLeftToday += bonusMinutes;
             }
 
-            if (log == null)
-            {
+            if (log == null) {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
                     Date = today,
@@ -124,17 +97,12 @@ namespace TodoApi.Controllers
                     DailyGoal = user?.DailyGoal ?? 3,
                     PointsEarned = points
                 });
-            }
-            else
-            {
+            } else {
                 log.TasksCompleted += count;
                 log.PointsEarned += points;
             }
         }
 
-        private bool StaticTaskExists(int id)
-        {
-            return _context.StaticTasks.Any(e => e.Id == id);
-        }
+        private bool StaticTaskExists(int id) => _context.StaticTasks.Any(e => e.Id == id);
     }
 }
