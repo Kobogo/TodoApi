@@ -61,7 +61,7 @@ namespace TodoApi.Controllers
             if (isCompleted && !task.IsCompleted) {
                 task.IsCompleted = true;
                 task.LastCompletedDate = DateTime.UtcNow;
-                await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.TimeBonusMinutes);
+                await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.BonusMinutes);
             }
             else if (!isCompleted) {
                 task.IsCompleted = false;
@@ -77,7 +77,6 @@ namespace TodoApi.Controllers
             var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            // Rettelse: Vi fjerner bonus-logikken herfra, så man ikke "snyder" sig til minutter ved sletning
             _context.DynamicTasks.Remove(task);
             await _context.SaveChangesAsync();
             return NoContent();
