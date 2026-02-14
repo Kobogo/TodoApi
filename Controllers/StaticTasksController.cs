@@ -18,11 +18,28 @@ namespace TodoApi.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int? userId)
         {
-            var query = _context.StaticTasks.AsQueryable();
-            List<StaticTask> tasks;
-            if (userId.HasValue) tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
-            else tasks = await query.Where(t => t.UserId == null).ToListAsync();
-            return Ok(tasks);
+            try
+            {
+                var query = _context.StaticTasks.AsQueryable();
+
+                List<StaticTask> tasks;
+                if (userId.HasValue)
+                {
+                    // Vi bruger .Where med eksplicit håndtering af null for at undgå LINQ-to-SQL fejl
+                    tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
+                }
+                else
+                {
+                    tasks = await query.Where(t => t.UserId == null).ToListAsync();
+                }
+
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fejl i StaticTasks GetAll: {ex.Message}");
+                return StatusCode(500, "Intern serverfejl");
+            }
         }
 
         [HttpPost]
@@ -30,7 +47,8 @@ namespace TodoApi.Controllers
         {
             _context.StaticTasks.Add(task);
             await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetAll), new { userId = task.UserId }, task);
+            // Rettet: CreatedAtAction peger nu på GetAll (da vi ikke har en GetById endnu)
+            return Ok(task);
         }
 
         [HttpPut("{id}")]
@@ -49,22 +67,30 @@ namespace TodoApi.Controllers
         [HttpPatch("{id}/completion")]
         public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
         {
-            var task = await _context.StaticTasks.FindAsync(id);
-            if (task == null) return NotFound();
+            try
+            {
+                var task = await _context.StaticTasks.FindAsync(id);
+                if (task == null) return NotFound();
 
-            if (isCompleted && !task.IsCompleted) {
-                task.IsCompleted = true;
-                task.LastCompletedDate = DateTime.UtcNow;
-                if (task.UserId.HasValue) {
-                    await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.BonusMinutes);
+                if (isCompleted && !task.IsCompleted) {
+                    task.IsCompleted = true;
+                    task.LastCompletedDate = DateTime.UtcNow;
+                    if (task.UserId.HasValue) {
+                        await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.BonusMinutes);
+                    }
                 }
-            }
-            else if (!isCompleted) {
-                task.IsCompleted = false;
-            }
+                else if (!isCompleted) {
+                    task.IsCompleted = false;
+                }
 
-            await _context.SaveChangesAsync();
-            return NoContent();
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fejl ved opdatering af static completion: {ex.Message}");
+                return StatusCode(500, "Fejl ved opdatering");
+            }
         }
 
         [HttpDelete("{id}")]
@@ -73,7 +99,6 @@ namespace TodoApi.Controllers
             var task = await _context.StaticTasks.FindAsync(id);
             if (task == null) return NotFound();
 
-            // Rettelse: Bonus fjernet fra sletning
             _context.StaticTasks.Remove(task);
             await _context.SaveChangesAsync();
             return NoContent();

@@ -18,9 +18,22 @@ namespace TodoApi.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<DynamicTask>>> GetDynamicTasks([FromQuery] int? userId)
         {
-            var query = _context.DynamicTasks.AsQueryable();
-            if (userId.HasValue) query = query.Where(t => t.UserId == userId.Value);
-            return await query.ToListAsync();
+            try
+            {
+                var query = _context.DynamicTasks.AsQueryable();
+                if (userId.HasValue)
+                {
+                    query = query.Where(t => t.UserId == userId.Value);
+                }
+
+                var tasks = await query.ToListAsync();
+                return Ok(tasks);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fejl i GetDynamicTasks: {ex.Message}");
+                return StatusCode(500, "Kunne ikke hente opgaver");
+            }
         }
 
         [HttpGet("{id}")]
@@ -55,20 +68,29 @@ namespace TodoApi.Controllers
         [HttpPatch("{id}/completion")]
         public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
         {
-            var task = await _context.DynamicTasks.FindAsync(id);
-            if (task == null) return NotFound();
+            try
+            {
+                var task = await _context.DynamicTasks.FindAsync(id);
+                if (task == null) return NotFound();
 
-            if (isCompleted && !task.IsCompleted) {
-                task.IsCompleted = true;
-                task.LastCompletedDate = DateTime.UtcNow;
-                await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.BonusMinutes);
-            }
-            else if (!isCompleted) {
-                task.IsCompleted = false;
-            }
+                if (isCompleted && !task.IsCompleted) {
+                    task.IsCompleted = true;
+                    task.LastCompletedDate = DateTime.UtcNow;
+                    // Her sikrer vi at vi bruger BonusMinutes (husk at tjekke din model hedder dette)
+                    await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.BonusMinutes);
+                }
+                else if (!isCompleted) {
+                    task.IsCompleted = false;
+                }
 
-            await _context.SaveChangesAsync();
-            return NoContent();
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fejl ved opdatering af completion: {ex.Message}");
+                return StatusCode(500, "Fejl ved opdatering");
+            }
         }
 
         [HttpDelete("{id}")]
