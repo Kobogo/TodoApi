@@ -31,10 +31,10 @@ namespace TodoApi.Models
         [Column("repeatDays")]
         public List<DayOfWeek>? RepeatDays { get; set; }
 
-        [Column("points")]
+        [Column("Points")]
         public int Points { get; set; } = 2;
 
-        [Column("bonusMinutesEarnedToday")]
-        public int? BonusMinutesEarnedToday { get; set; } = 15;
+        [Column("TimeBonusMinutes")]
+        public int? TimeBonusMinutes { get; set; } = 15;
     }
 }
