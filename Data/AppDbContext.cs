@@ -84,8 +84,8 @@ namespace TodoApi.Data
                 builder.Property(e => e.TimeOfDay).HasColumnName("timeOfDay");
                 builder.Property(e => e.LastCompletedDate).HasColumnName("lastCompletedDate");
                 builder.Property(e => e.LastShownDate).HasColumnName("lastShownDate");
-                builder.Property(e => e.Points).HasColumnName("Points");
-                builder.Property(e => e.TimeBonusMinutes).HasColumnName("TimeBonusMinutes");
+                builder.Property(e => e.Points).HasColumnName("points");
+                builder.Property(e => e.TimeBonusMinutes).HasColumnName("timeBonusMinutes");
 
                 // RELATION: StaticTask -> User
                 builder.HasOne<User>()
@@ -137,8 +137,8 @@ namespace TodoApi.Data
                 builder.Property(e => e.TimeOfDay).HasColumnName("timeOfDay");
                 builder.Property(e => e.LastCompletedDate).HasColumnName("lastCompletedDate");
                 builder.Property(e => e.LastShownDate).HasColumnName("lastShownDate");
-                builder.Property(e => e.Points).HasColumnName("Points");
-                builder.Property(e => e.TimeBonusMinutes).HasColumnName("TimeBonusMinutes");
+                builder.Property(e => e.Points).HasColumnName("points");
+                builder.Property(e => e.TimeBonusMinutes).HasColumnName("timeBonusMinutes");
 
                 // RELATION: DynamicTask -> User
                 builder.HasOne<User>()
