@@ -77,7 +77,7 @@ namespace TodoApi.Controllers
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
                     // Her sikrer vi at vi bruger BonusMinutes (husk at tjekke din model hedder dette)
-                    await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.BonusMinutes);
+                    await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.BonusMinutes ?? 0);
                 }
                 else if (!isCompleted) {
                     task.IsCompleted = false;

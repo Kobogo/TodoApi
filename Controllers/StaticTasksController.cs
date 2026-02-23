@@ -76,7 +76,7 @@ namespace TodoApi.Controllers
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
                     if (task.UserId.HasValue) {
-                        await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.BonusMinutes);
+                        await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.BonusMinutes ?? 0);
                     }
                 }
                 else if (!isCompleted) {
