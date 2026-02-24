@@ -73,10 +73,12 @@ namespace TodoApi.Controllers
                 var task = await _context.DynamicTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
+                // Giv kun bonus hvis opgaven ændres fra IKKE-udført til UDFØRT
                 if (isCompleted && !task.IsCompleted) {
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
-                    // Her sikrer vi at vi bruger BonusMinutes (husk at tjekke din model hedder dette)
+
+                    // Sender TimeBonusMinutes (med lille t) til log-funktionen
                     await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.TimeBonusMinutes ?? 0);
                 }
                 else if (!isCompleted) {
@@ -110,10 +112,18 @@ namespace TodoApi.Controllers
             var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
             var user = await _context.Users.FindAsync(userId);
 
-            if (user != null && user.Role == "Child") {
-                user.MinutesLeftToday += bonusMinutes;
+            if (user != null) {
+                // 1. Opdater brugerens totale point (til dashboard score)
+                user.TotalPoints += points;
+
+                // 2. Hvis det er et barn, tildel bonusminutter til uret og dagens statistik
+                if (user.Role == "Child") {
+                    user.MinutesLeftToday += bonusMinutes;
+                    user.BonusMinutesEarnedToday += bonusMinutes;
+                }
             }
 
+            // 3. Opdater eller opret dagens log (til streaks og grafer)
             if (log == null) {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,

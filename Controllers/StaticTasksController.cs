@@ -21,22 +21,15 @@ namespace TodoApi.Controllers
             try
             {
                 var query = _context.StaticTasks.AsQueryable();
-
                 List<StaticTask> tasks;
-                if (userId.HasValue)
-                {
-                    // Vi bruger .Where med eksplicit håndtering af null for at undgå LINQ-to-SQL fejl
+                if (userId.HasValue) {
                     tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
-                }
-                else
-                {
+                } else {
                     tasks = await query.Where(t => t.UserId == null).ToListAsync();
                 }
-
                 return Ok(tasks);
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Fejl i StaticTasks GetAll: {ex.Message}");
                 return StatusCode(500, "Intern serverfejl");
             }
@@ -47,7 +40,6 @@ namespace TodoApi.Controllers
         {
             _context.StaticTasks.Add(task);
             await _context.SaveChangesAsync();
-            // Rettet: CreatedAtAction peger nu på GetAll (da vi ikke har en GetById endnu)
             return Ok(task);
         }
 
@@ -75,7 +67,9 @@ namespace TodoApi.Controllers
                 if (isCompleted && !task.IsCompleted) {
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
+
                     if (task.UserId.HasValue) {
+                        // Tilføjet EnsureTaskLogged logikken her
                         await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.TimeBonusMinutes ?? 0);
                     }
                 }
@@ -86,8 +80,7 @@ namespace TodoApi.Controllers
                 await _context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 Console.WriteLine($"Fejl ved opdatering af static completion: {ex.Message}");
                 return StatusCode(500, "Fejl ved opdatering");
             }
@@ -110,8 +103,12 @@ namespace TodoApi.Controllers
             var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
             var user = await _context.Users.FindAsync(userId);
 
-            if (user != null && user.Role == "Child") {
-                user.MinutesLeftToday += bonusMinutes;
+            if (user != null) {
+                user.TotalPoints += points;
+                if (user.Role == "Child") {
+                    user.MinutesLeftToday += bonusMinutes;
+                    user.BonusMinutesEarnedToday += bonusMinutes;
+                }
             }
 
             if (log == null) {
