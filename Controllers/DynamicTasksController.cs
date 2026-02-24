@@ -37,7 +37,7 @@ namespace TodoApi.Controllers
                     bool isOldCompletion = task.LastCompletedDate.Value.ToUniversalTime().Date < today;
 
                     // 2. Tjek om opgaven faktisk skal gentages (repeatDays må ikke være tom eller null)
-                    bool isRecurring = !string.IsNullOrWhiteSpace(task.RepeatDays?.ToString());
+                    bool isRecurring = task.RepeatDays != null && task.RepeatDays.Any();
 
                     if (isOldCompletion && isRecurring)
                     {
