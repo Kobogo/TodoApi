@@ -22,15 +22,31 @@ namespace TodoApi.Controllers
             {
                 var query = _context.StaticTasks.AsQueryable();
                 List<StaticTask> tasks;
+
                 if (userId.HasValue) {
                     tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
                 } else {
                     tasks = await query.Where(t => t.UserId == null).ToListAsync();
                 }
+
+                var today = DateTime.UtcNow.Date;
+                bool changed = false;
+
+                foreach (var task in tasks.Where(t => t.IsCompleted && t.LastCompletedDate.HasValue))
+                {
+                    if (task.LastCompletedDate.Value.ToUniversalTime().Date < today)
+                    {
+                        task.IsCompleted = false;
+                        _context.Entry(task).Property(x => x.IsCompleted).IsModified = true;
+                        changed = true;
+                    }
+                }
+
+                if (changed) await _context.SaveChangesAsync();
+
                 return Ok(tasks);
             }
             catch (Exception ex) {
-                Console.WriteLine($"Fejl i StaticTasks GetAll: {ex.Message}");
                 return StatusCode(500, "Intern serverfejl");
             }
         }
@@ -67,9 +83,7 @@ namespace TodoApi.Controllers
                 if (isCompleted && !task.IsCompleted) {
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
-
                     if (task.UserId.HasValue) {
-                        // Tilføjet EnsureTaskLogged logikken her
                         await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.TimeBonusMinutes ?? 0);
                     }
                 }
@@ -81,7 +95,6 @@ namespace TodoApi.Controllers
                 return NoContent();
             }
             catch (Exception ex) {
-                Console.WriteLine($"Fejl ved opdatering af static completion: {ex.Message}");
                 return StatusCode(500, "Fejl ved opdatering");
             }
         }
@@ -91,7 +104,6 @@ namespace TodoApi.Controllers
         {
             var task = await _context.StaticTasks.FindAsync(id);
             if (task == null) return NotFound();
-
             _context.StaticTasks.Remove(task);
             await _context.SaveChangesAsync();
             return NoContent();

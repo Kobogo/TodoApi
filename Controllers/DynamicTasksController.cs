@@ -27,6 +27,28 @@ namespace TodoApi.Controllers
                 }
 
                 var tasks = await query.ToListAsync();
+                var today = DateTime.UtcNow.Date;
+                bool changed = false;
+
+                // Automatisk nulstilling ved nyt døgn
+                foreach (var task in tasks.Where(t => t.IsCompleted && t.LastCompletedDate.HasValue))
+                {
+                    // 1. Tjek om opgaven blev løst før i dag
+                    bool isOldCompletion = task.LastCompletedDate.Value.ToUniversalTime().Date < today;
+
+                    // 2. Tjek om opgaven faktisk skal gentages (repeatDays må ikke være tom eller null)
+                    bool isRecurring = !string.IsNullOrWhiteSpace(task.RepeatDays?.ToString());
+
+                    if (isOldCompletion && isRecurring)
+                    {
+                        task.IsCompleted = false;
+                        _context.Entry(task).Property(x => x.IsCompleted).IsModified = true;
+                        changed = true;
+                    }
+                }
+
+                if (changed) await _context.SaveChangesAsync();
+
                 return Ok(tasks);
             }
             catch (Exception ex)
@@ -73,12 +95,9 @@ namespace TodoApi.Controllers
                 var task = await _context.DynamicTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                // Giv kun bonus hvis opgaven ændres fra IKKE-udført til UDFØRT
                 if (isCompleted && !task.IsCompleted) {
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
-
-                    // Sender TimeBonusMinutes (med lille t) til log-funktionen
                     await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.TimeBonusMinutes ?? 0);
                 }
                 else if (!isCompleted) {
@@ -90,7 +109,6 @@ namespace TodoApi.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Fejl ved opdatering af completion: {ex.Message}");
                 return StatusCode(500, "Fejl ved opdatering");
             }
         }
@@ -100,7 +118,6 @@ namespace TodoApi.Controllers
         {
             var task = await _context.DynamicTasks.FindAsync(id);
             if (task == null) return NotFound();
-
             _context.DynamicTasks.Remove(task);
             await _context.SaveChangesAsync();
             return NoContent();
@@ -113,17 +130,13 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
 
             if (user != null) {
-                // 1. Opdater brugerens totale point (til dashboard score)
                 user.TotalPoints += points;
-
-                // 2. Hvis det er et barn, tildel bonusminutter til uret og dagens statistik
                 if (user.Role == "Child") {
                     user.MinutesLeftToday += bonusMinutes;
                     user.BonusMinutesEarnedToday += bonusMinutes;
                 }
             }
 
-            // 3. Opdater eller opret dagens log (til streaks og grafer)
             if (log == null) {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
