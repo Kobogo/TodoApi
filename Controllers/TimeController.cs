@@ -16,18 +16,20 @@ namespace TodoApi.Controllers
             _context = context;
         }
 
-        // Henter status til både uret og dashboardet
         [HttpGet("{userId}")]
         public async Task<IActionResult> GetTimerStatus(int userId)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
+            // Vi kører lige et tjek her også, så dashboardet altid viser korrekt data
+            await CheckAndResetDay(user);
+
             return Ok(new {
                 user.MinutesLeftToday,
                 user.IsTimerRunning,
                 user.SaturdayBonusPot,
-                user.BonusMinutesEarnedToday // Tilføjet så dashboardet kan vise dagens optjening
+                user.BonusMinutesEarnedToday
             });
         }
 
@@ -38,7 +40,9 @@ namespace TodoApi.Controllers
             if (user == null) return NotFound();
 
             user.MinutesLeftToday -= minutesUsed;
-            user.LastTimerUpdate = DateTime.Now;
+            if (user.MinutesLeftToday < 0) user.MinutesLeftToday = 0;
+
+            user.LastTimerUpdate = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return Ok(new { user.MinutesLeftToday });
@@ -62,60 +66,64 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            var today = DateTime.UtcNow;
+            bool wasReset = await CheckAndResetDay(user);
 
-            // Tjek om vi er gået ind i et nyt døgn
-            if (user.LastTimerUpdate.Date < today.Date)
+            return Ok(new {
+                user.MinutesLeftToday,
+                user.SaturdayBonusPot,
+                wasReset,
+                Message = wasReset ? "Systemet er synkroniseret til den nye dag." : "Allerede opdateret for i dag."
+            });
+        }
+
+        // HJÆLPEFUNKTION: Denne sørger for den komplekse logik omkring dage og lørdagspulje
+        private async Task<bool> CheckAndResetDay(User user)
+        {
+            var now = DateTime.UtcNow;
+            var today = now.Date;
+            var lastUpdate = user.LastTimerUpdate.ToUniversalTime().Date;
+
+            if (lastUpdate < today)
             {
-                // 1. HØST OVERSKYDENDE TID til SaturdayBonusPot
+                // 1. HØST: Hvis han ikke har brugt sin tid i går (eller de sidste mange dage)
+                // Overfør kun hvis det ikke er lørdag (for lørdag tømmer vi puljen)
                 if (user.MinutesLeftToday > 0)
                 {
                     user.SaturdayBonusPot += user.MinutesLeftToday;
                 }
 
-                // 2. NULSTIL DAGENS STATISTIK
+                // 2. NULSTIL STATISTIK
                 user.BonusMinutesEarnedToday = 0;
 
-                // 3. FIND DEN NYE BASIS-TID
-                int baseMinutes = 240; // Hverdage
+                // 3. FIND BASIS-TID FOR DEN NYE DAG
+                int baseMinutes = (today.DayOfWeek == DayOfWeek.Saturday || today.DayOfWeek == DayOfWeek.Sunday) ? 300 : 240;
 
+                // 4. LØRDAGS-SPECIAL: Tøm puljen ind i dagens tid
                 if (today.DayOfWeek == DayOfWeek.Saturday)
                 {
-                    // Lørdag: 5 timer + opsparing
-                    baseMinutes = 300 + user.SaturdayBonusPot;
-                    user.SaturdayBonusPot = 0;
+                    user.MinutesLeftToday = baseMinutes + user.SaturdayBonusPot;
+                    user.SaturdayBonusPot = 0; // Tøm puljen
                 }
-                else if (today.DayOfWeek == DayOfWeek.Sunday)
+                else
                 {
-                    baseMinutes = 300; // Søndag: 5 timer
+                    user.MinutesLeftToday = baseMinutes;
                 }
 
-                user.MinutesLeftToday = baseMinutes;
-                user.LastTimerUpdate = today;
-
+                user.LastTimerUpdate = now;
                 await _context.SaveChangesAsync();
-                return Ok(new {
-                    user.MinutesLeftToday,
-                    user.SaturdayBonusPot,
-                    user.BonusMinutesEarnedToday,
-                    Message = "Dagen er nulstillet. Overskydende tid er flyttet til lørdagspuljen."
-                });
+                return true;
             }
 
-            return Ok(new { user.MinutesLeftToday, Message = "Tiden er allerede sat for i dag." });
+            return false;
         }
 
-        // Bruges når han løser opgaver i Todo-appen
         [HttpPatch("{userId}/add")]
         public async Task<IActionResult> AddExtraTime(int userId, [FromBody] int bonusMinutes)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            // Læg minutterne til den nuværende pulje
             user.MinutesLeftToday += bonusMinutes;
-
-            // Tæl også med i statistikken for hvad han har tjent I DAG
             user.BonusMinutesEarnedToday += bonusMinutes;
 
             await _context.SaveChangesAsync();
