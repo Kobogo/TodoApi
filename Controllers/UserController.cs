@@ -192,7 +192,8 @@ namespace TodoApi.Controllers
                         u.Username,
                         u.Role,
                         u.TotalPoints,
-                        u.FamilyName
+                        u.FamilyName,
+                        u.MinutesLeftToday
                     })
                     .ToListAsync();
 
