@@ -84,6 +84,27 @@ namespace TodoApi.Controllers
             });
         }
 
+        // Forældre-override: Juster Lørdags-puljen manuelt
+        [HttpPatch("{userId}/saturday-bonus")]
+        public async Task<IActionResult> AdjustSaturdayBonus(int userId, [FromBody] int newBonus)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            // Vi opdaterer puljen direkte
+            user.SaturdayBonusPot = newBonus;
+
+            // Vi logger opdateringen ved at sætte tidspunktet (valgfrit, men god praksis)
+            // user.LastTimerUpdate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new {
+                user.SaturdayBonusPot,
+                Message = $"Lørdags-puljen er opdateret til {newBonus} minutter."
+            });
+        }
+
         // Manuel nulstilling (bruges f.eks. af din Sync-knap)
         [HttpPost("reset-daily-time/{userId}")]
         public async Task<IActionResult> ResetDailyTime(int userId)
