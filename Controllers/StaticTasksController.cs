@@ -23,6 +23,7 @@ namespace TodoApi.Controllers
                 var query = _context.StaticTasks.AsQueryable();
                 List<StaticTask> tasks;
 
+                // Henter opgaver der enten er fælles (UserId == null) eller tilhører brugeren
                 if (userId.HasValue) {
                     tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
                 } else {
@@ -46,7 +47,7 @@ namespace TodoApi.Controllers
 
                 return Ok(tasks);
             }
-            catch (Exception ex) {
+            catch (Exception) {
                 return StatusCode(500, "Intern serverfejl");
             }
         }
@@ -72,8 +73,9 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
+        // OPDATERET: Tager nu imod userId i query-string for at vide hvem der udfører opgaven
         [HttpPatch("{id}/completion")]
-        public async Task<IActionResult> UpdateCompletion(int id, [FromBody] bool isCompleted)
+        public async Task<IActionResult> UpdateCompletion(int id, [FromQuery] int userId, [FromBody] bool isCompleted)
         {
             try
             {
@@ -83,18 +85,21 @@ namespace TodoApi.Controllers
                 if (isCompleted && !task.IsCompleted) {
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
-                    if (task.UserId.HasValue) {
-                        await EnsureTaskLoggedAndAddBonus(task.UserId.Value, 1, task.Points, task.TimeBonusMinutes ?? 0);
-                    }
+
+                    // Her bruger vi 'userId' fra parameteren i stedet for task.UserId
+                    // Det sikrer at point lander hos den aktive bruger, selv ved fælles opgaver
+                    await EnsureTaskLoggedAndAddBonus(userId, 1, task.Points, task.TimeBonusMinutes ?? 0);
                 }
                 else if (!isCompleted) {
                     task.IsCompleted = false;
+                    // Bemærk: Vi trækker normalt ikke point fra her i denne simple version,
+                    // da det kræver mere kompleks logstyring hvis man fortryder.
                 }
 
                 await _context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (Exception ex) {
+            catch (Exception) {
                 return StatusCode(500, "Fejl ved opdatering");
             }
         }
