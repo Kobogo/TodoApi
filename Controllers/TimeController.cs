@@ -23,7 +23,7 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            // Vi kører lige et tjek her også, så dashboardet altid viser korrekt data
+            // Vi kører et tjek ved hver hentning for at sikre friske data
             await CheckAndResetDay(user);
 
             return Ok(new {
@@ -70,7 +70,6 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            // Vi sikrer os at dagen er up-to-date før vi overskriver
             await CheckAndResetDay(user);
 
             user.MinutesLeftToday = newMinutes;
@@ -91,12 +90,7 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            // Vi opdaterer puljen direkte
             user.SaturdayBonusPot = newBonus;
-
-            // Vi logger opdateringen ved at sætte tidspunktet (valgfrit, men god praksis)
-            // user.LastTimerUpdate = DateTime.UtcNow;
-
             await _context.SaveChangesAsync();
 
             return Ok(new {
@@ -105,24 +99,33 @@ namespace TodoApi.Controllers
             });
         }
 
-        // Manuel nulstilling (bruges f.eks. af din Sync-knap)
-        [HttpPost("reset-daily-time/{userId}")]
-        public async Task<IActionResult> ResetDailyTime(int userId)
+        // NY: Manuel nulstilling for HELE familien (bruges af Sync-knap)
+        [HttpPost("reset-family-time/{familyId}")]
+        public async Task<IActionResult> ResetFamilyTime(int familyId)
         {
-            var user = await _context.Users.FindAsync(userId);
-            if (user == null) return NotFound();
+            var members = await _context.Users
+                .Where(u => u.FamilyId == familyId)
+                .ToListAsync();
 
-            bool wasReset = await CheckAndResetDay(user);
+            if (members == null || !members.Any())
+                return NotFound("Ingen familiemedlemmer fundet.");
+
+            int resetCount = 0;
+            foreach (var member in members)
+            {
+                bool wasReset = await CheckAndResetDay(member);
+                if (wasReset) resetCount++;
+            }
+
+            await _context.SaveChangesAsync();
 
             return Ok(new {
-                user.MinutesLeftToday,
-                user.SaturdayBonusPot,
-                wasReset,
-                Message = wasReset ? "Systemet er synkroniseret til den nye dag." : "Allerede opdateret for i dag."
+                Message = $"Synkronisering fuldført. {resetCount} medlemmer opdateret til ny dag.",
+                ResetCount = resetCount
             });
         }
 
-        // Bruges når han løser opgaver i Todo-appen for at give bonus
+        // Bruges når der løses opgaver for at give bonus
         [HttpPatch("{userId}/add")]
         public async Task<IActionResult> AddExtraTime(int userId, [FromBody] int bonusMinutes)
         {
@@ -140,16 +143,17 @@ namespace TodoApi.Controllers
             });
         }
 
-        // HJÆLPEFUNKTION: Håndterer logikken for dagsskifte og lørdagspulje
+        // HJÆLPEFUNKTION: Robust logik for dagsskifte og lørdagspulje
         private async Task<bool> CheckAndResetDay(User user)
         {
             var now = DateTime.UtcNow;
             var today = now.Date;
-            var lastUpdate = user.LastTimerUpdate.ToUniversalTime().Date;
+            var lastUpdateDate = user.LastTimerUpdate.ToUniversalTime().Date;
 
-            if (lastUpdate < today)
+            // Hvis det er en ny dag siden sidst
+            if (lastUpdateDate < today)
             {
-                // 1. HØST: Hvis han har tid tilbage, gem det til lørdagspuljen
+                // 1. HØST: Gem overskydende tid til lørdagspuljen
                 if (user.MinutesLeftToday > 0)
                 {
                     user.SaturdayBonusPot += user.MinutesLeftToday;
@@ -161,7 +165,7 @@ namespace TodoApi.Controllers
                 // 3. FIND BASIS-TID (Hverdag: 240, Weekend: 300)
                 int baseMinutes = (today.DayOfWeek == DayOfWeek.Saturday || today.DayOfWeek == DayOfWeek.Sunday) ? 300 : 240;
 
-                // 4. LØRDAGS-SPECIAL: Tøm puljen ind i dagens tid
+                // 4. LØRDAGS-SPECIAL: Tøm puljen ind i dagens tid hvis det er lørdag
                 if (today.DayOfWeek == DayOfWeek.Saturday)
                 {
                     user.MinutesLeftToday = baseMinutes + user.SaturdayBonusPot;
@@ -172,8 +176,10 @@ namespace TodoApi.Controllers
                     user.MinutesLeftToday = baseMinutes;
                 }
 
+                // Opdater timestamp så vi ikke nulstiller igen i dag
                 user.LastTimerUpdate = now;
-                await _context.SaveChangesAsync();
+
+                // Vi kalder ikke SaveChangesAsync her, da det gøres i de kaldende metoder
                 return true;
             }
 
