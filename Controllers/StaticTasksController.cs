@@ -23,7 +23,7 @@ namespace TodoApi.Controllers
                 var query = _context.StaticTasks.AsQueryable();
                 List<StaticTask> tasks;
 
-                // Henter opgaver der enten er fælles (UserId == null) eller tilhører brugeren
+                // Henter opgaver der enten er fælles (UserId == null) eller tilhører den valgte bruger
                 if (userId.HasValue) {
                     tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
                 } else {
@@ -47,7 +47,9 @@ namespace TodoApi.Controllers
 
                 return Ok(tasks);
             }
-            catch (Exception) {
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Fejl i GetAll: {ex.Message}");
                 return StatusCode(500, "Intern serverfejl");
             }
         }
@@ -73,34 +75,37 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        // OPDATERET: Tager nu imod userId i query-string for at vide hvem der udfører opgaven
+        // OPDATERET: Bruger nu performingUserId for at sikre, at point tildeles den person, der trykker
         [HttpPatch("{id}/completion")]
-        public async Task<IActionResult> UpdateCompletion(int id, [FromQuery] int userId, [FromBody] bool isCompleted)
+        public async Task<IActionResult> UpdateCompletion(int id, [FromQuery] int performingUserId, [FromBody] bool isCompleted)
         {
             try
             {
                 var task = await _context.StaticTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                if (isCompleted && !task.IsCompleted) {
+                if (isCompleted && !task.IsCompleted)
+                {
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
 
-                    // Her bruger vi 'userId' fra parameteren i stedet for task.UserId
-                    // Det sikrer at point lander hos den aktive bruger, selv ved fælles opgaver
-                    await EnsureTaskLoggedAndAddBonus(userId, 1, task.Points, task.TimeBonusMinutes ?? 0);
+                    // Giv point og bonus til den udførende bruger (f.eks. Far eller Barn)
+                    await EnsureTaskLoggedAndAddBonus(performingUserId, 1, task.Points, task.TimeBonusMinutes ?? 0);
                 }
-                else if (!isCompleted) {
+                else if (!isCompleted)
+                {
                     task.IsCompleted = false;
-                    // Bemærk: Vi trækker normalt ikke point fra her i denne simple version,
-                    // da det kræver mere kompleks logstyring hvis man fortryder.
+                    // Her kan man evt. tilføje logik til at trække point fra igen, hvis det ønskes
                 }
 
                 await _context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (Exception) {
-                return StatusCode(500, "Fejl ved opdatering");
+            catch (Exception ex)
+            {
+                // Vigtigt: Log fejlen så du kan se den i Render console
+                Console.WriteLine($"Fejl ved opdatering af completion for opgave {id}: {ex.Message}");
+                return StatusCode(500, $"Fejl ved opdatering: {ex.Message}");
             }
         }
 
@@ -117,26 +122,34 @@ namespace TodoApi.Controllers
         private async Task EnsureTaskLoggedAndAddBonus(int userId, int count, int points, int bonusMinutes)
         {
             var today = DateTime.UtcNow.Date;
-            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
-            var user = await _context.Users.FindAsync(userId);
 
-            if (user != null) {
-                user.TotalPoints += points;
-                if (user.Role == "Child") {
-                    user.MinutesLeftToday += bonusMinutes;
-                    user.BonusMinutesEarnedToday += bonusMinutes;
-                }
+            // Hent brugeren først for at sikre, at vedkommende eksisterer
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) throw new Exception($"Bruger med ID {userId} blev ikke fundet.");
+
+            // Opdater brugerens totale point og skærmtid (hvis barn)
+            user.TotalPoints += points;
+            if (user.Role == "Child")
+            {
+                user.MinutesLeftToday += bonusMinutes;
+                user.BonusMinutesEarnedToday += bonusMinutes;
             }
 
-            if (log == null) {
+            // Hent eller opret dags-log
+            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
+
+            if (log == null)
+            {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
                     Date = today,
                     TasksCompleted = count,
-                    DailyGoal = user?.DailyGoal ?? 3,
+                    DailyGoal = user.DailyGoal,
                     PointsEarned = points
                 });
-            } else {
+            }
+            else
+            {
                 log.TasksCompleted += count;
                 log.PointsEarned += points;
             }
