@@ -132,14 +132,15 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            user.MinutesLeftToday += bonusMinutes;
+            user.SaturdayBonusPot += bonusMinutes;
             user.BonusMinutesEarnedToday += bonusMinutes;
 
             await _context.SaveChangesAsync();
 
             return Ok(new {
                 user.MinutesLeftToday,
-                user.BonusMinutesEarnedToday
+                user.BonusMinutesEarnedToday,
+                user.SaturdayBonusPot
             });
         }
 
