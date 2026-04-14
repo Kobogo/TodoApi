@@ -180,7 +180,7 @@ namespace TodoApi.Controllers
             if (lastUpdateDate < today)
             {
                 // 1. HØST: Gem overskydende tid til lørdagspuljen
-                if (user.MinutesLeftToday > 0)
+                if (user.MinutesLeftToday > 0 && !user.IsPaused)
                 {
                     user.SaturdayBonusPot += user.MinutesLeftToday;
                 }
@@ -191,8 +191,12 @@ namespace TodoApi.Controllers
                 // 3. FIND BASIS-TID (Hverdag: 240, Weekend: 300)
                 int baseMinutes = (today.DayOfWeek == DayOfWeek.Saturday || today.DayOfWeek == DayOfWeek.Sunday) ? 300 : 240;
 
-                // 4. LØRDAGS-SPECIAL: Tøm puljen ind i dagens tid hvis det er lørdag
-                if (today.DayOfWeek == DayOfWeek.Saturday)
+                // 4. LØRDAGS-SPECIAL: Sæt minutterne til 0 hvis ferie-mode er aktiveret, ellers tøm puljen ind i dagens tid hvis det er lørdag
+                if (user.IsPaused)
+                {
+                    user.MinutesLeftToday = 0;
+                }
+                else if (today.DayOfWeek == DayOfWeek.Saturday)
                 {
                     user.MinutesLeftToday = baseMinutes + user.SaturdayBonusPot;
                     user.SaturdayBonusPot = 0;
