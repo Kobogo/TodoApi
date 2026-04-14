@@ -30,7 +30,8 @@ namespace TodoApi.Controllers
                 user.MinutesLeftToday,
                 user.IsTimerRunning,
                 user.SaturdayBonusPot,
-                user.BonusMinutesEarnedToday
+                user.BonusMinutesEarnedToday,
+                user.IsPaused
             });
         }
 
@@ -142,6 +143,30 @@ namespace TodoApi.Controllers
                 user.BonusMinutesEarnedToday,
                 user.SaturdayBonusPot
             });
+        }
+
+        // Forældre-override: Sæt optjening på pause (Ferie mode)
+        [HttpPatch("{userId}/pause")]
+        public async Task<IActionResult> TogglePause(int userId, [FromBody] dynamic data)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            // Vi udlæser isPaused fra det JSON objekt vi sendte fra React
+            try {
+                bool pauseStatus = data.GetProperty("isPaused").GetBoolean();
+                user.IsPaused = pauseStatus;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new {
+                    user.IsPaused,
+                    Message = user.IsPaused ? "Ferie-mode aktiveret." : "Ferie-mode deaktiveret."
+                });
+            }
+            catch {
+                return BadRequest("Ugyldig data format. Forventede { isPaused: bool }");
+            }
         }
 
         // HJÆLPEFUNKTION: Robust logik for dagsskifte og lørdagspulje

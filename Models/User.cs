@@ -44,4 +44,7 @@ public class User
 
     [Column("bonusMinutesEarnedToday")]
     public int BonusMinutesEarnedToday { get; set; } = 0;
+
+    [Column("isPaused")]
+    public bool IsPaused { get; set; } = false;
 }
