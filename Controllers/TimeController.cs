@@ -145,17 +145,22 @@ namespace TodoApi.Controllers
             });
         }
 
+        public class PauseDTO
+        {
+            public bool IsPaused { get; set; }
+        }
+
         // Forældre-override: Sæt optjening på pause (Ferie mode)
         [HttpPatch("{userId}/pause")]
-        public async Task<IActionResult> TogglePause(int userId, [FromBody] dynamic data)
+        public async Task<IActionResult> TogglePause(int userId, [FromBody] PauseDTO data)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            // Vi udlæser isPaused fra det JSON objekt vi sendte fra React
-            try {
-                bool pauseStatus = data.GetProperty("isPaused").GetBoolean();
-                user.IsPaused = pauseStatus;
+            try
+            {
+                // Nu kan vi bare læse værdien direkte fra 'data'
+                user.IsPaused = data.IsPaused;
 
                 await _context.SaveChangesAsync();
 
@@ -164,8 +169,9 @@ namespace TodoApi.Controllers
                     Message = user.IsPaused ? "Ferie-mode aktiveret." : "Ferie-mode deaktiveret."
                 });
             }
-            catch {
-                return BadRequest("Ugyldig data format. Forventede { isPaused: bool }");
+            catch (Exception ex)
+            {
+                return BadRequest($"Fejl ved opdatering: {ex.Message}");
             }
         }
 
