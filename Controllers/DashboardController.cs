@@ -79,6 +79,7 @@ namespace TodoApi.Controllers
                     BonusMinutesEarnedToday = user.BonusMinutesEarnedToday,
                     SaturdayBonusPot = user.SaturdayBonusPot,
                     IsTimerRunning = user.IsTimerRunning,
+                    IsPaused = user.IsPaused,
                     RecentLogs = allLogs.Take(7).Select(l => new {
                         l.Date,
                         l.TasksCompleted,
