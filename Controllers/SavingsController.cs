@@ -91,5 +91,37 @@ namespace TodoApi.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { NewTotalPoints = user.TotalPoints });
         }
+
+        // Justering af point manuelt (f.eks. hvis forælderen vil give ekstra point eller rette en fejl)
+        [HttpPost("adjust-points/{userId}")]
+        [Authorize(Roles = "Parent")]
+        public async Task<IActionResult> AdjustPoints(int userId, [FromBody] int adjustment)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null) return NotFound();
+
+            // Opdater saldoen
+            user.TotalPoints += adjustment;
+
+            // Sørg for at saldoen ikke bliver negativ (valgfrit)
+            if (user.TotalPoints < 0) user.TotalPoints = 0;
+
+            // Opret en log-post for overblikkets skyld
+            var log = new TaskLog
+            {
+                UserId = userId,
+                Date = DateTime.UtcNow.Date,
+                PointsEarned = adjustment,
+                TasksCompleted = 0,
+                DailyGoal = user.DailyGoal,
+                // Du kan eventuelt tilføje en Note-kolonne i din database senere:
+                // Note = "Manuel justering af forældre"
+            };
+
+            _context.TaskLogs.Add(log);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { NewTotalPoints = user.TotalPoints });
+        }
     }
 }
