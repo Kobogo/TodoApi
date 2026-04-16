@@ -25,14 +25,21 @@ namespace TodoApi.Controllers
             {
                 var todayUtc = DateTime.UtcNow.Date;
 
-                // 1. Hent brugeren først for at få det absolut nyeste DailyGoal
+                // 1. Hent brugeren først
                 var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
                 if (user == null) return NotFound("Bruger ikke fundet");
+
+                // 2. Hent det aktive opsparingsmål (Hvor IsReached er false)
+                var activeGoal = await _context.SavingsGoals
+                    .AsNoTracking()
+                    .Where(g => g.UserId == userId && !g.IsReached)
+                    .OrderByDescending(g => g.CreatedAt)
+                    .FirstOrDefaultAsync();
 
                 // Brug målet fra bruger-tabellen (default til 3 hvis 0 eller mindre)
                 int currentDailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3;
 
-                // 2. Hent alle logs for brugeren
+                // 3. Hent alle logs for brugeren
                 var allLogs = await _context.TaskLogs
                     .Where(l => l.UserId == userId)
                     .OrderByDescending(l => l.Date)
@@ -42,22 +49,19 @@ namespace TodoApi.Controllers
                 var todayLog = allLogs.FirstOrDefault(l => l.Date == todayUtc);
                 int effectiveDoneToday = todayLog?.TasksCompleted ?? 0;
 
-                // 3. STREAK BEREGNING
+                // 4. STREAK BEREGNING
                 int streak = 0;
 
-                // Tjek i dag mod det aktuelle mål (det vi lige har hentet fra User)
+                // Tjek i dag mod det aktuelle mål
                 if (effectiveDoneToday >= currentDailyGoal)
                 {
                     streak++;
                 }
 
                 // Tjek historikken bagud
-                // Her bruger vi loggens historiske mål (log.DailyGoal),
-                // så en ændring i dag ikke ødelægger gårsdagens streak retroaktivt.
                 var historyForStreak = allLogs.Where(l => l.Date < todayUtc).ToList();
                 foreach (var log in historyForStreak)
                 {
-                    // Hvis loggen ikke har et mål gemt (gamle data), brug 3 som fallback
                     int historicalGoal = log.DailyGoal > 0 ? log.DailyGoal : 3;
 
                     if (log.TasksCompleted >= historicalGoal)
@@ -66,13 +70,14 @@ namespace TodoApi.Controllers
                         break;
                 }
 
-                // 4. TOTAL SCORE (Samlet sum af alle optjente point i loggen)
+                // 5. TOTAL SCORE (Samlet sum af alle optjente point i loggen)
                 int totalPoints = allLogs.Sum(l => l.PointsEarned);
 
                 return Ok(new
                 {
                     Streak = streak,
                     TotalPoints = totalPoints,
+                    ActiveGoal = activeGoal, // Sendes nu med til frontenden
                     TodayCompleted = effectiveDoneToday,
                     DailyGoal = currentDailyGoal,
                     MinutesLeftToday = user.MinutesLeftToday,
@@ -83,7 +88,6 @@ namespace TodoApi.Controllers
                     RecentLogs = allLogs.Take(7).Select(l => new {
                         l.Date,
                         l.TasksCompleted,
-                        // Vi sender målet med for hver dag, så grafen kan vise det korrekt
                         DailyGoal = l.Date == todayUtc ? currentDailyGoal : (l.DailyGoal > 0 ? l.DailyGoal : 3)
                     })
                 });
