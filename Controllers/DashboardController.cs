@@ -70,8 +70,8 @@ namespace TodoApi.Controllers
                         break;
                 }
 
-                // 5. TOTAL SCORE (Samlet sum af alle optjente point i loggen)
-                int totalPoints = allLogs.Sum(l => l.PointsEarned);
+                // 5. TOTAL SCORE (Vi bruger saldoen fra bruger-objektet, som vi hentede i punkt 1)
+                int totalPoints = user.TotalPoints;
 
                 return Ok(new
                 {
