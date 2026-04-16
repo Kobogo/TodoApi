@@ -18,6 +18,7 @@ namespace TodoApi.Data
         public DbSet<DynamicTask> DynamicTasks { get; set; } = null!;
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<TaskLog> TaskLogs { get; set; } = null!;
+        public DbSet<SavingsGoal> SavingsGoals { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -180,6 +181,25 @@ namespace TodoApi.Data
                 entity.Property(e => e.PointsEarned).HasColumnName("pointsEarned");
 
                 // Relation: TaskLog -> User
+                entity.HasOne<User>()
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // --- SAVINGSGOAL MAPPING ---
+            modelBuilder.Entity<SavingsGoal>(entity =>
+            {
+                entity.ToTable("savingsGoals");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).HasColumnName("id");
+                entity.Property(e => e.UserId).HasColumnName("userId");
+                entity.Property(e => e.Title).HasColumnName("title");
+                entity.Property(e => e.TargetPoints).HasColumnName("targetPoints");
+                entity.Property(e => e.IsReached).HasColumnName("isReached");
+                entity.Property(e => e.CreatedAt).HasColumnName("createdAt");
+
+                // RELATION: SavingsGoal -> User
                 entity.HasOne<User>()
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
