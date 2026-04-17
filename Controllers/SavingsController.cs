@@ -18,35 +18,52 @@ namespace TodoApi.Controllers
             _context = context;
         }
 
-        // Hent det aktive mål og den nuværende point-saldo
+        // 1. HENT STATUS (Opdateret til at returnere en liste af aktive mål)
         [HttpGet("status/{userId}")]
         public async Task<IActionResult> GetSavingsStatus(int userId)
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound("Bruger ikke fundet");
 
-            var activeGoal = await _context.SavingsGoals
+            // Vi henter alle mål der ikke er nået endnu for denne bruger
+            var activeGoals = await _context.SavingsGoals
                 .Where(g => g.UserId == userId && !g.IsReached)
                 .OrderByDescending(g => g.CreatedAt)
-                .FirstOrDefaultAsync();
+                .ToListAsync(); // Ændret fra FirstOrDefault til ToList
 
             return Ok(new
             {
                 CurrentPoints = user.TotalPoints,
-                ActiveGoal = activeGoal
+                ActiveGoals = activeGoals // Sørg for at JSON-nøglen matcher din frontend (ActiveGoals)
             });
         }
 
-        // Opret et nyt opsparingsmål
+        // 2. OPRET MÅL (Uændret, men vigtig for logikken)
         [HttpPost("goal")]
         public async Task<IActionResult> CreateGoal([FromBody] SavingsGoal goal)
         {
+            // Sørg for at CreatedAt sættes på serveren for en sikkerheds skyld
+            goal.CreatedAt = DateTime.UtcNow;
             _context.SavingsGoals.Add(goal);
             await _context.SaveChangesAsync();
             return Ok(goal);
         }
 
-        // Markér et mål som nået/købt
+        // 3. SLET MÅL (Ny funktion - kun forældre)
+        [HttpDelete("goal/{id}")]
+        [Authorize(Roles = "Parent")]
+        public async Task<IActionResult> DeleteGoal(int id)
+        {
+            var goal = await _context.SavingsGoals.FindAsync(id);
+            if (goal == null) return NotFound("Målet blev ikke fundet");
+
+            _context.SavingsGoals.Remove(goal);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // 4. MARKÉR SOM NÅET (Patch)
         [HttpPatch("goal/{id}/reached")]
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> MarkAsReached(int id)
@@ -59,7 +76,7 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        // Udbetaling: Når forælderen giver gaven/pengene, trækkes pointene fra saldoen
+        // 5. UDBETALING (Post)
         [HttpPost("payout/{userId}")]
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> PayoutPoints(int userId, [FromBody] int pointsToDeduct)
@@ -72,7 +89,6 @@ namespace TodoApi.Controllers
 
             user.TotalPoints -= pointsToDeduct;
 
-            // Vi opretter en log-post med negative point, så statistikken (TotalPoints) i dashboardet stemmer overens
             var today = DateTime.UtcNow.Date;
             var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
 
@@ -92,7 +108,7 @@ namespace TodoApi.Controllers
             return Ok(new { NewTotalPoints = user.TotalPoints });
         }
 
-        // Justering af point manuelt (f.eks. hvis forælderen vil give ekstra point eller rette en fejl)
+        // 6. JUSTERING AF POINT
         [HttpPost("adjust-points/{userId}")]
         [Authorize(Roles = "Parent")]
         public async Task<IActionResult> AdjustPoints(int userId, [FromBody] int adjustment)
@@ -100,27 +116,19 @@ namespace TodoApi.Controllers
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            // Opdater saldoen
             user.TotalPoints += adjustment;
-
-            // Sørg for at saldoen ikke bliver negativ (valgfrit)
             if (user.TotalPoints < 0) user.TotalPoints = 0;
 
-            // Opret en log-post for overblikkets skyld
-            var log = new TaskLog
+            _context.TaskLogs.Add(new TaskLog
             {
                 UserId = userId,
                 Date = DateTime.UtcNow.Date,
                 PointsEarned = adjustment,
                 TasksCompleted = 0,
-                DailyGoal = user.DailyGoal,
-                // Du kan eventuelt tilføje en Note-kolonne i din database senere:
-                // Note = "Manuel justering af forældre"
-            };
+                DailyGoal = user.DailyGoal
+            });
 
-            _context.TaskLogs.Add(log);
             await _context.SaveChangesAsync();
-
             return Ok(new { NewTotalPoints = user.TotalPoints });
         }
     }
