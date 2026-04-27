@@ -144,7 +144,7 @@ namespace TodoApi.Controllers
                     UserId = userId,
                     Date = today,
                     TasksCompleted = count,
-                    DailyGoal = user.DailyGoal,
+                    DailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3, // Brug brugerens daglige mål eller default til 3
                     PointsEarned = points
                 });
             }
@@ -152,6 +152,7 @@ namespace TodoApi.Controllers
             {
                 log.TasksCompleted += count;
                 log.PointsEarned += points;
+                log.DailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3; // Opdater loggens daglige mål i tilfælde af ændring
             }
         }
 
