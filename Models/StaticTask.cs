@@ -36,5 +36,8 @@ namespace TodoApi.Models
 
         [Column("timeBonusMinutes")]
         public int? TimeBonusMinutes { get; set; } = 15;
+
+        [Column("isRepeatable")]
+        public bool IsRepeatable { get; set; }
     }
 }

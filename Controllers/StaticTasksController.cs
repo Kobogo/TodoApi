@@ -77,25 +77,35 @@ namespace TodoApi.Controllers
 
         // OPDATERET: Bruger nu performingUserId for at sikre, at point tildeles den person, der trykker
         [HttpPatch("{id}/completion")]
-        public async Task<IActionResult> UpdateCompletion(int id, [FromQuery] int performingUserId, [FromBody] bool isCompleted)
+        public async Task<IActionResult> UpdateCompletion(
+            int id,
+            [FromQuery] int performingUserId,
+            [FromBody] bool isCompleted,
+            [FromQuery] int count = 1) // Antal point at tildele, default er 1
         {
             try
             {
                 var task = await _context.StaticTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                if (isCompleted && !task.IsCompleted)
+                // LOGIK: Hvis det er en repeatable opgave, tildeler vi point hver gang der trykkes "true"
+                // Vi sætter dog LastCompletedDate hver gang, så den stadig nulstilles korrekt ved midnat.
+                if (isCompleted)
                 {
+                    // Hvis den IKKE er repeatable, må den kun gøres færdig én gang pr. dag
+                    if (!task.IsRepeatable && task.IsCompleted)
+                        return BadRequest("Opgaven er allerede udført i dag.");
+
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
 
-                    // Giv point og bonus til den udførende bruger (f.eks. Far eller Barn)
-                    await EnsureTaskLoggedAndAddBonus(performingUserId, 1, task.Points, task.TimeBonusMinutes ?? 0);
+                    await EnsureTaskLoggedAndAddBonus(performingUserId, 1, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
                 }
-                else if (!isCompleted)
+                else
                 {
-                    task.IsCompleted = false;
-                    // Her kan man evt. tilføje logik til at trække point fra igen, hvis det ønskes
+                    // Tillad kun at fjerne markering hvis den ikke er repeatable
+                    // (Det er svært at "fortryde" en repeatable opgave da point er givet pr. gang)
+                    if (!task.IsRepeatable) task.IsCompleted = false;
                 }
 
                 await _context.SaveChangesAsync();

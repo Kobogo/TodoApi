@@ -25,61 +25,82 @@ namespace TodoApi.Controllers
             {
                 var todayUtc = DateTime.UtcNow.Date;
 
-                // 1. Hent brugeren først
+                // 1. Hent brugeren
                 var user = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
                 if (user == null) return NotFound("Bruger ikke fundet");
 
-                // 2. Hent det aktive opsparingsmål (Hvor IsReached er false)
+                // 2. Hent det aktive opsparingsmål
                 var activeGoal = await _context.SavingsGoals
                     .AsNoTracking()
                     .Where(g => g.UserId == userId && !g.IsReached)
                     .OrderByDescending(g => g.CreatedAt)
                     .FirstOrDefaultAsync();
 
-                // Brug målet fra bruger-tabellen (default til 3 hvis 0 eller mindre)
                 int currentDailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3;
 
-                // 3. Hent alle logs for brugeren
+                // 3. Hent alle logs
                 var allLogs = await _context.TaskLogs
                     .Where(l => l.UserId == userId)
                     .OrderByDescending(l => l.Date)
                     .ToListAsync();
 
-                // Find dagens tal direkte fra loggen
                 var todayLog = allLogs.FirstOrDefault(l => l.Date == todayUtc);
                 int effectiveDoneToday = todayLog?.TasksCompleted ?? 0;
 
-                // 4. STREAK BEREGNING
+                // 4. STREAK & BUFFER LOGIK
                 int streak = 0;
+                bool isBufferAvailable = false;
+                int currentRunForBuffer = 0;
+                bool bufferWasUsedInCalculations = false;
 
-                // Tjek i dag mod det aktuelle mål
+                // Vi tjekker historikken bagud (eksklusive i dag)
+                var history = allLogs.Where(l => l.Date < todayUtc).ToList();
+
+                // Beregn om brugeren har en buffer klar (har klaret de sidste 7 dage før i dag)
+                int consecutiveBeforeToday = 0;
+                foreach (var log in history)
+                {
+                    int goal = log.DailyGoal > 0 ? log.DailyGoal : 3;
+                    if (log.TasksCompleted >= goal) consecutiveBeforeToday++;
+                    else break;
+                }
+
+                isBufferAvailable = consecutiveBeforeToday >= 7;
+                currentRunForBuffer = consecutiveBeforeToday % 7;
+
+                // Beregn den faktiske streak (inkluder i dag hvis klaret)
                 if (effectiveDoneToday >= currentDailyGoal)
                 {
-                    streak++;
+                    streak = 1 + consecutiveBeforeToday;
                 }
-
-                // Tjek historikken bagud
-                var historyForStreak = allLogs.Where(l => l.Date < todayUtc).ToList();
-                foreach (var log in historyForStreak)
+                else
                 {
-                    int historicalGoal = log.DailyGoal > 0 ? log.DailyGoal : 3;
-
-                    if (log.TasksCompleted >= historicalGoal)
-                        streak++;
+                    // Hvis i dag IKKE er klaret, men vi har en buffer, lever streaken stadig
+                    if (isBufferAvailable)
+                    {
+                        streak = 1 + consecutiveBeforeToday; // Vi tæller "i dag" med pga buffer
+                        bufferWasUsedInCalculations = true;
+                    }
                     else
-                        break;
+                    {
+                        // Ingen buffer og mål ikke nået i dag? Streaken er historikken.
+                        streak = consecutiveBeforeToday;
+                    }
                 }
 
-                // 5. TOTAL SCORE (Vi bruger saldoen fra bruger-objektet, som vi hentede i punkt 1)
+                // 5. TOTAL SCORE
                 int totalPoints = user.TotalPoints;
 
                 return Ok(new
                 {
                     Streak = streak,
                     TotalPoints = totalPoints,
-                    ActiveGoal = activeGoal, // Sendes nu med til frontenden
+                    ActiveGoal = activeGoal,
                     TodayCompleted = effectiveDoneToday,
                     DailyGoal = currentDailyGoal,
+                    IsBufferAvailable = isBufferAvailable,
+                    DaysUntilBuffer = 7 - currentRunForBuffer,
+                    BufferUsedToday = bufferWasUsedInCalculations,
                     MinutesLeftToday = user.MinutesLeftToday,
                     BonusMinutesEarnedToday = user.BonusMinutesEarnedToday,
                     SaturdayBonusPot = user.SaturdayBonusPot,
