@@ -23,7 +23,6 @@ namespace TodoApi.Controllers
                 var query = _context.StaticTasks.AsQueryable();
                 List<StaticTask> tasks;
 
-                // Henter opgaver der enten er fælles (UserId == null) eller tilhører den valgte bruger
                 if (userId.HasValue) {
                     tasks = await query.Where(t => t.UserId == null || t.UserId == userId.Value).ToListAsync();
                 } else {
@@ -44,12 +43,10 @@ namespace TodoApi.Controllers
                 }
 
                 if (changed) await _context.SaveChangesAsync();
-
                 return Ok(tasks);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Fejl i GetAll: {ex.Message}");
                 return StatusCode(500, "Intern serverfejl");
             }
         }
@@ -75,37 +72,30 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        // OPDATERET: Bruger nu performingUserId for at sikre, at point tildeles den person, der trykker
         [HttpPatch("{id}/completion")]
-        public async Task<IActionResult> UpdateCompletion(
-            int id,
-            [FromQuery] int performingUserId,
-            [FromBody] bool isCompleted,
-            [FromQuery] int count = 1) // Antal point at tildele, default er 1
+        public async Task<IActionResult> UpdateCompletion(int id, [FromQuery] int performingUserId, [FromBody] bool isCompleted, [FromQuery] int count = 1)
         {
             try
             {
                 var task = await _context.StaticTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                // LOGIK: Hvis det er en repeatable opgave, tildeler vi point hver gang der trykkes "true"
-                // Vi sætter dog LastCompletedDate hver gang, så den stadig nulstilles korrekt ved midnat.
+                // LOGIK: Sæt til færdig (eller tilføj point for repeatable)
                 if (isCompleted)
                 {
-                    // Hvis den IKKE er repeatable, må den kun gøres færdig én gang pr. dag
                     if (!task.IsRepeatable && task.IsCompleted)
                         return BadRequest("Opgaven er allerede udført i dag.");
 
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
 
-                    await EnsureTaskLoggedAndAddBonus(performingUserId, 1, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
+                    await HandleUserStatsUpdate(performingUserId, true, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
                 }
-                else
+                // LOGIK: Fjern flueben (kun muligt for ikke-repeatable)
+                else if (!isCompleted && task.IsCompleted && !task.IsRepeatable)
                 {
-                    // Tillad kun at fjerne markering hvis den ikke er repeatable
-                    // (Det er svært at "fortryde" en repeatable opgave da point er givet pr. gang)
-                    if (!task.IsRepeatable) task.IsCompleted = false;
+                    task.IsCompleted = false;
+                    await HandleUserStatsUpdate(performingUserId, false, task.Points, task.TimeBonusMinutes ?? 0);
                 }
 
                 await _context.SaveChangesAsync();
@@ -113,8 +103,6 @@ namespace TodoApi.Controllers
             }
             catch (Exception ex)
             {
-                // Vigtigt: Log fejlen så du kan se den i Render console
-                Console.WriteLine($"Fejl ved opdatering af completion for opgave {id}: {ex.Message}");
                 return StatusCode(500, $"Fejl ved opdatering: {ex.Message}");
             }
         }
@@ -129,40 +117,40 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        private async Task EnsureTaskLoggedAndAddBonus(int userId, int count, int points, int bonusMinutes)
+        private async Task HandleUserStatsUpdate(int userId, bool adding, int points, int bonusMinutes)
         {
             var today = DateTime.UtcNow.Date;
-
-            // Hent brugeren først for at sikre, at vedkommende eksisterer
             var user = await _context.Users.FindAsync(userId);
-            if (user == null) throw new Exception($"Bruger med ID {userId} blev ikke fundet.");
+            if (user == null) return;
 
-            // Opdater brugerens totale point og skærmtid (hvis barn)
-            user.TotalPoints += points;
+            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
+            int multiplier = adding ? 1 : -1;
+
+            user.TotalPoints += (points * multiplier);
             if (user.Role == "Child")
             {
-                user.MinutesLeftToday += bonusMinutes;
-                user.BonusMinutesEarnedToday += bonusMinutes;
+                user.MinutesLeftToday += (bonusMinutes * multiplier);
+                user.BonusMinutesEarnedToday += (bonusMinutes * multiplier);
             }
 
-            // Hent eller opret dags-log
-            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
-
-            if (log == null)
+            if (log == null && adding)
             {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
                     Date = today,
-                    TasksCompleted = count,
-                    DailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3, // Brug brugerens daglige mål eller default til 3
+                    TasksCompleted = 1,
+                    DailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3,
                     PointsEarned = points
                 });
             }
-            else
+            else if (log != null)
             {
-                log.TasksCompleted += count;
-                log.PointsEarned += points;
-                log.DailyGoal = user.DailyGoal > 0 ? user.DailyGoal : 3; // Opdater loggens daglige mål i tilfælde af ændring
+                log.TasksCompleted += multiplier;
+                log.PointsEarned += (points * multiplier);
+
+                if (log.TasksCompleted < 0) log.TasksCompleted = 0;
+                if (log.PointsEarned < 0) log.PointsEarned = 0;
+                if (user.TotalPoints < 0) user.TotalPoints = 0;
             }
         }
 

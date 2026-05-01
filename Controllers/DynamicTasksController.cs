@@ -30,13 +30,9 @@ namespace TodoApi.Controllers
                 var today = DateTime.UtcNow.Date;
                 bool changed = false;
 
-                // Automatisk nulstilling ved nyt døgn
                 foreach (var task in tasks.Where(t => t.IsCompleted && t.LastCompletedDate.HasValue))
                 {
-                    // 1. Tjek om opgaven blev løst før i dag
                     bool isOldCompletion = task.LastCompletedDate.Value.ToUniversalTime().Date < today;
-
-                    // 2. Tjek om opgaven faktisk skal gentages (repeatDays må ikke være tom eller null)
                     bool isRecurring = task.RepeatDays != null && task.RepeatDays.Any();
 
                     if (isOldCompletion && isRecurring)
@@ -48,12 +44,10 @@ namespace TodoApi.Controllers
                 }
 
                 if (changed) await _context.SaveChangesAsync();
-
                 return Ok(tasks);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Fejl i GetDynamicTasks: {ex.Message}");
                 return StatusCode(500, "Kunne ikke hente opgaver");
             }
         }
@@ -95,16 +89,19 @@ namespace TodoApi.Controllers
                 var task = await _context.DynamicTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                if (isCompleted && !task.IsCompleted) {
-                    task.IsCompleted = true;
-                    task.LastCompletedDate = DateTime.UtcNow;
-                    await EnsureTaskLoggedAndAddBonus(task.UserId, 1, task.Points, task.TimeBonusMinutes ?? 0);
-                }
-                else if (!isCompleted) {
-                    task.IsCompleted = false;
+                // Kør kun logik hvis status rent faktisk ændrer sig
+                if (isCompleted != task.IsCompleted)
+                {
+                    task.IsCompleted = isCompleted;
+                    if (isCompleted)
+                    {
+                        task.LastCompletedDate = DateTime.UtcNow;
+                    }
+
+                    await HandleUserStatsUpdate(task.UserId, isCompleted, task.Points, task.TimeBonusMinutes ?? 0);
+                    await _context.SaveChangesAsync();
                 }
 
-                await _context.SaveChangesAsync();
                 return NoContent();
             }
             catch (Exception ex)
@@ -123,31 +120,43 @@ namespace TodoApi.Controllers
             return NoContent();
         }
 
-        private async Task EnsureTaskLoggedAndAddBonus(int userId, int count, int points, int bonusMinutes)
+        private async Task HandleUserStatsUpdate(int userId, bool adding, int points, int bonusMinutes)
         {
             var today = DateTime.UtcNow.Date;
-            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
             var user = await _context.Users.FindAsync(userId);
+            var log = await _context.TaskLogs.FirstOrDefaultAsync(l => l.UserId == userId && l.Date == today);
 
-            if (user != null) {
-                user.TotalPoints += points;
-                if (user.Role == "Child") {
-                    user.MinutesLeftToday += bonusMinutes;
-                    user.BonusMinutesEarnedToday += bonusMinutes;
+            int multiplier = adding ? 1 : -1;
+
+            if (user != null)
+            {
+                user.TotalPoints += (points * multiplier);
+                if (user.Role == "Child")
+                {
+                    user.MinutesLeftToday += (bonusMinutes * multiplier);
+                    user.BonusMinutesEarnedToday += (bonusMinutes * multiplier);
                 }
             }
 
-            if (log == null) {
+            if (log == null && adding)
+            {
                 _context.TaskLogs.Add(new TaskLog {
                     UserId = userId,
                     Date = today,
-                    TasksCompleted = count,
+                    TasksCompleted = 1,
                     DailyGoal = user?.DailyGoal ?? 3,
                     PointsEarned = points
                 });
-            } else {
-                log.TasksCompleted += count;
-                log.PointsEarned += points;
+            }
+            else if (log != null)
+            {
+                log.TasksCompleted += multiplier;
+                log.PointsEarned += (points * multiplier);
+
+                // Sikkerhedsnet: Undgå negative værdier
+                if (log.TasksCompleted < 0) log.TasksCompleted = 0;
+                if (log.PointsEarned < 0) log.PointsEarned = 0;
+                if (user != null && user.TotalPoints < 0) user.TotalPoints = 0;
             }
         }
 
