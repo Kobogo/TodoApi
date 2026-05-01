@@ -111,19 +111,19 @@ namespace TodoApi.Controllers
         // 6. JUSTERING AF POINT
         [HttpPost("adjust-points/{userId}")]
         [Authorize(Roles = "Parent")]
-        public async Task<IActionResult> AdjustPoints(int userId, [FromBody] int adjustment)
+        public async Task<IActionResult> AdjustPoints(int userId, [FromBody] AdjustmentDTO data) // Ændret fra int til AdjustmentDTO
         {
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return NotFound();
 
-            user.TotalPoints += adjustment;
+            user.TotalPoints += data.Adjustment; // Brug data fra DTO
             if (user.TotalPoints < 0) user.TotalPoints = 0;
 
             _context.TaskLogs.Add(new TaskLog
             {
                 UserId = userId,
                 Date = DateTime.UtcNow.Date,
-                PointsEarned = adjustment,
+                PointsEarned = data.Adjustment, // Brug data fra DTO
                 TasksCompleted = 0,
                 DailyGoal = user.DailyGoal
             });
@@ -131,5 +131,9 @@ namespace TodoApi.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { NewTotalPoints = user.TotalPoints });
         }
+    }
+        public class AdjustmentDTO
+    {
+        public int Adjustment { get; set; }
     }
 }
