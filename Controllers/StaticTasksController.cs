@@ -80,22 +80,21 @@ namespace TodoApi.Controllers
                 var task = await _context.StaticTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                // LOGIK: Sæt til færdig (eller tilføj point for repeatable)
                 if (isCompleted)
                 {
-                    if (!task.IsRepeatable && task.IsCompleted)
-                        return BadRequest("Opgaven er allerede udført i dag.");
-
+                    // Ved repeatable må man godt trykke "Udført" igen og igen
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
-
                     await HandleUserStatsUpdate(performingUserId, true, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
                 }
-                // LOGIK: Fjern flueben (kun muligt for ikke-repeatable)
-                else if (!isCompleted && task.IsCompleted && !task.IsRepeatable)
+                else
                 {
+                    // HER ER RETTELSEN: Vi tillader nu at fjerne fluebenet
+                    // Selvom den er repeatable, sætter vi IsCompleted til false
                     task.IsCompleted = false;
-                    await HandleUserStatsUpdate(performingUserId, false, task.Points, task.TimeBonusMinutes ?? 0);
+
+                    // Vi trækker point fra svarende til 'count' (typisk 1 når man fjerner et flueben)
+                    await HandleUserStatsUpdate(performingUserId, false, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
                 }
 
                 await _context.SaveChangesAsync();
@@ -103,7 +102,7 @@ namespace TodoApi.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Fejl ved opdatering: {ex.Message}");
+                return StatusCode(500, $"Fejl: {ex.Message}");
             }
         }
 
