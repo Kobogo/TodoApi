@@ -178,15 +178,23 @@ namespace TodoApi.Controllers
         // HJÆLPEFUNKTION: Robust logik for dagsskifte og lørdagspulje
         private async Task<bool> CheckAndResetDay(User user)
         {
-            var now = DateTime.UtcNow;
-            var today = now.Date;
-            var lastUpdateDate = user.LastTimerUpdate.ToUniversalTime().Date;
+            // Vi bruger dansk tid (Central European Standard Time) for at sikre
+            // at dagsskiftet sker ved midnat og ikke kl. 01:00/02:00 (UTC)
+            var danishTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
+            var nowDanish = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, danishTimeZone);
+            var today = nowDanish.Date;
 
-            // Hvis det er en ny dag siden sidst
-            if (lastUpdateDate < today)
+            // Vi konverterer gemte LastTimerUpdate til dansk tid for sammenligning
+            var lastUpdateDanish = TimeZoneInfo.ConvertTimeFromUtc(user.LastTimerUpdate, danishTimeZone).Date;
+
+            if (lastUpdateDanish < today)
             {
-                // 1. HØST: Gem overskydende tid til lørdagspuljen
-                if (user.MinutesLeftToday > 0 && !user.IsPaused)
+                // 1. HØST KUN FRA HVERDAGE (Mandag - Torsdag + Fredag)
+                // Vi gemmer kun tid hvis det var en hverdag i går, og ferie-mode er slukket
+                bool wasWeekday = lastUpdateDanish.DayOfWeek != DayOfWeek.Saturday &&
+                                lastUpdateDanish.DayOfWeek != DayOfWeek.Sunday;
+
+                if (wasWeekday && user.MinutesLeftToday > 0 && !user.IsPaused)
                 {
                     user.SaturdayBonusPot += user.MinutesLeftToday;
                 }
@@ -197,25 +205,29 @@ namespace TodoApi.Controllers
                 // 3. FIND BASIS-TID (Hverdag: 240, Weekend: 300)
                 int baseMinutes = (today.DayOfWeek == DayOfWeek.Saturday || today.DayOfWeek == DayOfWeek.Sunday) ? 300 : 240;
 
-                // 4. LØRDAGS-SPECIAL: Sæt minutterne til 0 hvis ferie-mode er aktiveret, ellers tøm puljen ind i dagens tid hvis det er lørdag
+                // 4. DAGSSKIFTE LOGIK
                 if (user.IsPaused)
                 {
+                    // Ferie-mode: Ingen fast tid, men vi beholder puljen til senere
                     user.MinutesLeftToday = 0;
                 }
                 else if (today.DayOfWeek == DayOfWeek.Saturday)
                 {
+                    // Det er lørdag: Giv basis + tøm hele opsparingen
                     user.MinutesLeftToday = baseMinutes + user.SaturdayBonusPot;
                     user.SaturdayBonusPot = 0;
                 }
                 else
                 {
+                    // Almindelig dag (Søndag-Fredag)
                     user.MinutesLeftToday = baseMinutes;
                 }
 
-                // Opdater timestamp så vi ikke nulstiller igen i dag
-                user.LastTimerUpdate = now;
+                // 5. VIGTIGT: Opdater timestamp til NU (UTC), så tjekket ikke kører igen før i morgen
+                user.LastTimerUpdate = DateTime.UtcNow;
 
-                // Vi kalder ikke SaveChangesAsync her, da det gøres i de kaldende metoder
+                // Gem ændringer med det samme for at undgå race-conditions
+                await _context.SaveChangesAsync();
                 return true;
             }
 
