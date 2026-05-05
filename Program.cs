@@ -86,6 +86,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
     });
 
+builder.Services.AddScoped<IAchievementService, AchievementService>();
 builder.Services.AddHostedService<TaskNotificationWorker>();
 builder.Services.AddHostedService<DailyCleanupWorker>();
 builder.Services.AddEndpointsApiExplorer();

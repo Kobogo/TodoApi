@@ -19,6 +19,8 @@ namespace TodoApi.Data
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<TaskLog> TaskLogs { get; set; } = null!;
         public DbSet<SavingsGoal> SavingsGoals { get; set; }
+        public DbSet<Achievement> Achievements { get; set; } = null!;
+        public DbSet<UserAchievement> UserAchievements { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -204,6 +206,59 @@ namespace TodoApi.Data
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // --- ACHIEVEMENT MAPPING ---
+            modelBuilder.Entity<Achievement>(entity =>
+            {
+                entity.ToTable("achievements");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id");
+
+                entity.Property(e => e.Title)
+                    .HasColumnName("title");
+
+                entity.Property(e => e.Description)
+                    .HasColumnName("description");
+
+                entity.Property(e => e.Icon)
+                    .HasColumnName("icon"); // Rettet fra IconUrl til Icon
+
+                entity.Property(e => e.Category)
+                    .HasColumnName("category");
+
+                entity.Property(e => e.RequirementValue)
+                    .HasColumnName("requirementValue"); // Rettet fra RequirementCount til RequirementValue
+
+                entity.Property(e => e.RewardAchievementPoints)
+                    .HasColumnName("rewardAchievementPoints"); // Rettet fra PointsReward til RewardAchievementPoints
+            });
+
+            // --- USERACHIEVEMENT MAPPING ---
+            modelBuilder.Entity<UserAchievement>(entity =>
+            {
+                entity.ToTable("userAchievements");
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Id)
+                    .HasColumnName("id");
+
+                entity.Property(e => e.UserId)
+                    .HasColumnName("userId");
+
+                entity.Property(e => e.AchievementId)
+                    .HasColumnName("achievementId");
+
+                entity.Property(e => e.UnlockedAt)
+                    .HasColumnName("unlockedAt");
+
+                // Definition af relationen til Achievement modellen
+                entity.HasOne(ua => ua.Achievement)
+                    .WithMany()
+                    .HasForeignKey(ua => ua.AchievementId)
+                    .OnDelete(DeleteBehavior.Cascade); // Valgfrit: sletter koblingen hvis en achievement fjernes
             });
         }
     }

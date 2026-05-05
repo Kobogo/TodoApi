@@ -47,4 +47,16 @@ public class User
 
     [Column("isPaused")]
     public bool IsPaused { get; set; } = false;
+
+    [Column("achievementPoints")]
+    public int AchievementPoints { get; set; } = 0; // Bruges til pakker
+
+    [Column("currentMultiplier")]
+    public double CurrentMultiplier { get; set; } = 1.0; // Standard er 1x point
+
+    [Column("multiplierExpiry")]
+    public DateTime? MultiplierExpiry { get; set; } // Hvornår udløber buffen?
+
+    [Column("totalTasksCompleted")]
+    public int TotalTasksCompleted { get; set; } = 0; // Til at tracke stats
 }

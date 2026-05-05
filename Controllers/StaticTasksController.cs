@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Data;
 using TodoApi.Models;
+using TodoApi.Services; // Tilføjet
 using Microsoft.AspNetCore.Authorization;
 
 namespace TodoApi.Controllers
@@ -12,8 +13,13 @@ namespace TodoApi.Controllers
     public class StaticTasksController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IAchievementService _achievementService; // Tilføjet
 
-        public StaticTasksController(AppDbContext context) { _context = context; }
+        public StaticTasksController(AppDbContext context, IAchievementService achievementService)
+        {
+            _context = context;
+            _achievementService = achievementService; // Tilføjet
+        }
 
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] int? userId)
@@ -82,18 +88,16 @@ namespace TodoApi.Controllers
 
                 if (isCompleted)
                 {
-                    // Ved repeatable må man godt trykke "Udført" igen og igen
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
                     await HandleUserStatsUpdate(performingUserId, true, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
+
+                    // Tjek for achievements
+                    await _achievementService.CheckAndAwardAchievementsAsync(performingUserId, "Tasks");
                 }
                 else
                 {
-                    // HER ER RETTELSEN: Vi tillader nu at fjerne fluebenet
-                    // Selvom den er repeatable, sætter vi IsCompleted til false
                     task.IsCompleted = false;
-
-                    // Vi trækker point fra svarende til 'count' (typisk 1 når man fjerner et flueben)
                     await HandleUserStatsUpdate(performingUserId, false, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
                 }
 

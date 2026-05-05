@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using TodoApi.Data;
 using TodoApi.Models;
+using TodoApi.Services; // Tilføjet
 using Microsoft.AspNetCore.Authorization;
 
 namespace TodoApi.Controllers
@@ -9,11 +10,16 @@ namespace TodoApi.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class TasksController : ControllerBase
+    public class DynamicTasksController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IAchievementService _achievementService; // Tilføjet
 
-        public TasksController(AppDbContext context) { _context = context; }
+        public DynamicTasksController(AppDbContext context, IAchievementService achievementService)
+        {
+            _context = context;
+            _achievementService = achievementService; // Tilføjet
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<DynamicTask>>> GetDynamicTasks([FromQuery] int? userId)
@@ -89,7 +95,6 @@ namespace TodoApi.Controllers
                 var task = await _context.DynamicTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
-                // Kør kun logik hvis status rent faktisk ændrer sig
                 if (isCompleted != task.IsCompleted)
                 {
                     task.IsCompleted = isCompleted;
@@ -99,6 +104,13 @@ namespace TodoApi.Controllers
                     }
 
                     await HandleUserStatsUpdate(task.UserId, isCompleted, task.Points, task.TimeBonusMinutes ?? 0);
+
+                    // Tjek for achievements når opgaven markeres som udført
+                    if (isCompleted)
+                    {
+                        await _achievementService.CheckAndAwardAchievementsAsync(task.UserId, "Tasks");
+                    }
+
                     await _context.SaveChangesAsync();
                 }
 
@@ -153,7 +165,6 @@ namespace TodoApi.Controllers
                 log.TasksCompleted += multiplier;
                 log.PointsEarned += (points * multiplier);
 
-                // Sikkerhedsnet: Undgå negative værdier
                 if (log.TasksCompleted < 0) log.TasksCompleted = 0;
                 if (log.PointsEarned < 0) log.PointsEarned = 0;
                 if (user != null && user.TotalPoints < 0) user.TotalPoints = 0;
