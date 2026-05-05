@@ -10,12 +10,12 @@ namespace TodoApi.Controllers
     [Authorize]
     [Route("api/[controller]")]
     [ApiController]
-    public class DynamicTasksController : ControllerBase
+    public class TasksController : ControllerBase
     {
         private readonly AppDbContext _context;
         private readonly IAchievementService _achievementService; // Tilføjet
 
-        public DynamicTasksController(AppDbContext context, IAchievementService achievementService)
+        public TasksController(AppDbContext context, IAchievementService achievementService)
         {
             _context = context;
             _achievementService = achievementService; // Tilføjet
