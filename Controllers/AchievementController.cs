@@ -21,19 +21,43 @@ namespace TodoApi.Controllers
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserAchievements(int userId)
         {
-            // Hent alle mulige achievements
-            var allAchievements = await _context.Achievements.ToListAsync();
+            try
+            {
+                // 1. Hent alle mulige achievements i systemet
+                var allAchievements = await _context.Achievements.ToListAsync();
 
-            // Hent dem brugeren allerede har låst op
-            var unlockedIds = await _context.UserAchievements
-                .Where(ua => ua.UserId == userId)
-                .Select(ua => ua.AchievementId)
-                .ToListAsync();
+                // 2. Hent ID'erne på de achievements brugeren allerede har låst op
+                var unlockedIds = await _context.UserAchievements
+                    .Where(ua => ua.UserId == userId)
+                    .Select(ua => ua.AchievementId)
+                    .ToListAsync();
 
-            return Ok(new {
-                AllAchievements = allAchievements,
-                UnlockedIds = unlockedIds
-            });
+                // 3. Beregn den aktuelle "Task" tæller (summen af alle udførte opgaver fra loggen)
+                var currentTaskCount = await _context.TaskLogs
+                    .Where(l => l.UserId == userId)
+                    .SumAsync(l => (int?)l.TasksCompleted) ?? 0;
+
+                // 4. Hent brugerens aktuelle point/opsparing
+                var user = await _context.Users
+                    .Where(u => u.Id == userId)
+                    .Select(u => new { u.TotalPoints })
+                    .FirstOrDefaultAsync();
+
+                var currentSavings = user?.TotalPoints ?? 0;
+
+                // Returnér det samlede objekt til frontenden
+                return Ok(new {
+                    AllAchievements = allAchievements,
+                    UnlockedIds = unlockedIds,
+                    CurrentTaskCount = currentTaskCount,
+                    CurrentSavings = currentSavings
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log fejlen internt hvis nødvendigt
+                return StatusCode(500, "Der opstod en fejl ved hentning af achievements.");
+            }
         }
     }
 }
