@@ -255,6 +255,9 @@ namespace TodoApi.Data
                 entity.Property(e => e.UnlockedAt)
                     .HasColumnName("unlockedAt");
 
+                entity.Property(e => e.IsRewardClaimed)
+                    .HasColumnName("isRewardClaimed");
+
                 // Definition af relationen til Achievement modellen
                 entity.HasOne(ua => ua.Achievement)
                     .WithMany()

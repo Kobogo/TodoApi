@@ -20,6 +20,9 @@ namespace TodoApi.Models
         [Column("unlockedAt")]
         public DateTime UnlockedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("isRewardClaimed")]
+        public bool IsRewardClaimed { get; set; } = false;
+
         // Navigation properties
         public Achievement? Achievement { get; set; }
     }
