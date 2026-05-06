@@ -4,6 +4,6 @@ namespace TodoApi.Services
 {
     public interface IAchievementService
     {
-        Task CheckAndAwardAchievementsAsync(int userId, string category);
+        Task CheckAndAwardAchievementsAsync(int userId);
     }
 }

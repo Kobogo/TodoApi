@@ -93,7 +93,7 @@ namespace TodoApi.Controllers
                     await HandleUserStatsUpdate(performingUserId, true, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
 
                     // Tjek for achievements
-                    await _achievementService.CheckAndAwardAchievementsAsync(performingUserId, "Tasks");
+                    await _achievementService.CheckAndAwardAchievementsAsync(performingUserId);
                 }
                 else
                 {

@@ -16,43 +16,35 @@ namespace TodoApi.Services
             _context = context;
         }
 
-        public async Task CheckAndAwardAchievementsAsync(int userId, string category)
+        public async Task CheckAndAwardAchievementsAsync(int userId)
         {
-            // 1. Hent brugeren
             var user = await _context.Users.FindAsync(userId);
             if (user == null) return;
 
-            // 2. Find de achievements i kategorien, som brugeren IKKE har endnu
-            var unlockedAchievementIds = await _context.UserAchievements
+            // 1. Hent alle achievements som brugeren IKKE har endnu (uanset kategori)
+            var earnedIds = await _context.UserAchievements
                 .Where(ua => ua.UserId == userId)
                 .Select(ua => ua.AchievementId)
                 .ToListAsync();
 
             var potentialAchievements = await _context.Achievements
-                .Where(a => a.Category == category && !unlockedAchievementIds.Contains(a.Id))
+                .Where(a => !earnedIds.Contains(a.Id))
                 .ToListAsync();
 
-            if (!potentialAchievements.Any()) return;
+            // 2. Cache tallene så vi ikke henter dem i et loop
+            int totalTasks = await _context.TaskLogs
+                .Where(l => l.UserId == userId)
+                .SumAsync(l => (int?)l.TasksCompleted) ?? 0;
 
-            // 3. Hent den aktuelle værdi baseret på kategorien
-            int currentValue = 0;
-            if (category == "Tasks")
-            {
-                currentValue = await _context.TaskLogs
-                    .Where(l => l.UserId == userId)
-                    .SumAsync(l => l.TasksCompleted);
-            }
-            else if (category == "TotalPoints")
-            {
-                currentValue = user.TotalPoints;
-            }
+            int totalPoints = user.TotalPoints;
 
-            // 4. Tjek hver potentiel achievement
+            // 3. Evaluer hver potentiel achievement
             foreach (var achievement in potentialAchievements)
             {
+                int currentValue = achievement.Category == "Tasks" ? totalTasks : totalPoints;
+
                 if (currentValue >= achievement.RequirementValue)
                 {
-                    // Lås op!
                     _context.UserAchievements.Add(new UserAchievement
                     {
                         UserId = userId,
@@ -60,7 +52,7 @@ namespace TodoApi.Services
                         UnlockedAt = DateTime.UtcNow
                     });
 
-                    // Giv belønning (Achievement Points / Valuta)
+                    // Giv point for de "gamle" achievements de nu har fortjent
                     user.TotalPoints += achievement.RewardAchievementPoints;
                 }
             }

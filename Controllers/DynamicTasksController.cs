@@ -108,7 +108,7 @@ namespace TodoApi.Controllers
                     // Tjek for achievements når opgaven markeres som udført
                     if (isCompleted)
                     {
-                        await _achievementService.CheckAndAwardAchievementsAsync(task.UserId, "Tasks");
+                        await _achievementService.CheckAndAwardAchievementsAsync(task.UserId);
                     }
 
                     await _context.SaveChangesAsync();
