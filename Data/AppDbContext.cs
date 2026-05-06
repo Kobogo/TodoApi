@@ -50,6 +50,7 @@ namespace TodoApi.Data
                 entity.Property(e => e.TotalPoints).HasColumnName("totalPoints");
                 entity.Property(e => e.SavingsBalance).HasColumnName("savingsBalance");
                 entity.Property(e => e.FamilyName).HasColumnName("familyName");
+                entity.Property(e => e.Emeralds).HasColumnName("emeralds");
 
                 // RELATION: User -> Family
                 entity.HasOne<Family>()

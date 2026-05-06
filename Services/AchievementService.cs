@@ -52,6 +52,10 @@ namespace TodoApi.Services
                         UnlockedAt = DateTime.UtcNow
                     });
 
+                    // Her bruger vi RewardAchievementPoints som mængden af emeralder
+                    user.Emeralds += achievement.RewardAchievementPoints;
+                    // Opdater også en samlet "AchievementPoints" hvis vi vil skelne mellem points optjent via opgaver og points optjent via achievements
+                    user.AchievementPoints += achievement.RewardAchievementPoints;
                     // Giv point for de "gamle" achievements de nu har fortjent
                     user.TotalPoints += achievement.RewardAchievementPoints;
                 }

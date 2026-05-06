@@ -59,4 +59,7 @@ public class User
 
     [Column("totalTasksCompleted")]
     public int TotalTasksCompleted { get; set; } = 0; // Til at tracke stats
+
+    [Column("emeralds")]
+    public int Emeralds { get; set; } = 0; // Bruges til at tracke emeralder
 }
