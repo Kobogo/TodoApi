@@ -91,7 +91,8 @@ namespace TodoApi.Controllers
                     task.IsCompleted = true;
                     task.LastCompletedDate = DateTime.UtcNow;
                     await HandleUserStatsUpdate(performingUserId, true, task.Points * count, (task.TimeBonusMinutes ?? 0) * count);
-
+                    // Gem ændringerne FØR vi tjekker for achievements, så vi sikrer at brugeren får credit for denne opgave
+                    await _context.SaveChangesAsync();
                     // Tjek for achievements
                     await _achievementService.CheckAndAwardAchievementsAsync(performingUserId);
                 }
