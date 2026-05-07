@@ -95,30 +95,37 @@ namespace TodoApi.Controllers
                 var task = await _context.DynamicTasks.FindAsync(id);
                 if (task == null) return NotFound();
 
+                // Vi gør kun noget, hvis status faktisk ændrer sig
                 if (isCompleted != task.IsCompleted)
                 {
                     task.IsCompleted = isCompleted;
+
                     if (isCompleted)
                     {
                         task.LastCompletedDate = DateTime.UtcNow;
-                    }
 
-                    await HandleUserStatsUpdate(task.UserId, isCompleted, task.Points, task.TimeBonusMinutes ?? 0);
+                        // 1. Opdater stats (point og log)
+                        await HandleUserStatsUpdate(task.UserId, true, task.Points, task.TimeBonusMinutes ?? 0);
 
-                    // Tjek for achievements når opgaven markeres som udført
-                    if (isCompleted)
-                    {
+                        // 2. GEM NU! Så databasen kender den nye opgave-tælling
+                        await _context.SaveChangesAsync();
+
+                        // 3. Tjek achievements (nu ser den det rigtige tal i databasen)
                         await _achievementService.CheckAndAwardAchievementsAsync(task.UserId);
                     }
-
-                    await _context.SaveChangesAsync();
+                    else
+                    {
+                        // Hvis man fortryder en fuldført opgave
+                        await HandleUserStatsUpdate(task.UserId, false, task.Points, task.TimeBonusMinutes ?? 0);
+                        await _context.SaveChangesAsync();
+                    }
                 }
 
                 return NoContent();
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "Fejl ved opdatering");
+                return StatusCode(500, $"Fejl ved opdatering: {ex.Message}");
             }
         }
 
