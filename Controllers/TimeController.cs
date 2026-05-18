@@ -178,25 +178,34 @@ namespace TodoApi.Controllers
         // HJÆLPEFUNKTION: Robust logik for dagsskifte og lørdagspulje
         private async Task<bool> CheckAndResetDay(User user)
         {
-            // Vi bruger dansk tid (Central European Standard Time) for at sikre
-            // at dagsskiftet sker ved midnat og ikke kl. 01:00/02:00 (UTC)
             var danishTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time");
             var nowDanish = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, danishTimeZone);
             var today = nowDanish.Date;
 
-            // Vi konverterer gemte LastTimerUpdate til dansk tid for sammenligning
             var lastUpdateDanish = TimeZoneInfo.ConvertTimeFromUtc(user.LastTimerUpdate, danishTimeZone).Date;
 
             if (lastUpdateDanish < today)
             {
-                // 1. HØST KUN FRA HVERDAGE (Mandag - Torsdag + Fredag)
-                // Vi gemmer kun tid hvis det var en hverdag i går, og ferie-mode er slukket
-                bool wasWeekday = lastUpdateDanish.DayOfWeek != DayOfWeek.Saturday &&
-                                lastUpdateDanish.DayOfWeek != DayOfWeek.Sunday;
-
-                if (wasWeekday && user.MinutesLeftToday > 0 && !user.IsPaused)
+                // --- OPDATERET LOGIK FOR LØRDAGS-OVERFØRSEL ---
+                // Hvis den dag der lige er gået var en lørdag, og han har minutter tilbage,
+                // så overfører vi ALLE de resterende minutter ubeskåret tilbage til hans bonus-pot.
+                if (lastUpdateDanish.DayOfWeek == DayOfWeek.Saturday && !user.IsPaused)
                 {
-                    user.SaturdayBonusPot += user.MinutesLeftToday;
+                    if (user.MinutesLeftToday > 0)
+                    {
+                        user.SaturdayBonusPot += user.MinutesLeftToday;
+                    }
+                }
+                // Almindelig hverdag-til-lørdag opsparing (Mandag-Fredag)
+                else
+                {
+                    bool wasWeekday = lastUpdateDanish.DayOfWeek != DayOfWeek.Saturday &&
+                                    lastUpdateDanish.DayOfWeek != DayOfWeek.Sunday;
+
+                    if (wasWeekday && user.MinutesLeftToday > 0 && !user.IsPaused)
+                    {
+                        user.SaturdayBonusPot += user.MinutesLeftToday;
+                    }
                 }
 
                 // 2. NULSTIL STATISTIK
@@ -208,12 +217,11 @@ namespace TodoApi.Controllers
                 // 4. DAGSSKIFTE LOGIK
                 if (user.IsPaused)
                 {
-                    // Ferie-mode: Ingen fast tid, men vi beholder puljen til senere
                     user.MinutesLeftToday = 0;
                 }
                 else if (today.DayOfWeek == DayOfWeek.Saturday)
                 {
-                    // Det er lørdag: Giv basis + tøm hele opsparingen
+                    // Det er lørdag: Giv basis + tøm hele opsparingen ind i hans daglige minutter
                     user.MinutesLeftToday = baseMinutes + user.SaturdayBonusPot;
                     user.SaturdayBonusPot = 0;
                 }
@@ -223,10 +231,9 @@ namespace TodoApi.Controllers
                     user.MinutesLeftToday = baseMinutes;
                 }
 
-                // 5. VIGTIGT: Opdater timestamp til NU (UTC), så tjekket ikke kører igen før i morgen
+                // 5. VIGTIGT: Opdater timestamp til NU (UTC)
                 user.LastTimerUpdate = DateTime.UtcNow;
 
-                // Gem ændringer med det samme for at undgå race-conditions
                 await _context.SaveChangesAsync();
                 return true;
             }
